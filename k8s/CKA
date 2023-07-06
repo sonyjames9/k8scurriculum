@@ -73,3 +73,10 @@ unix:///run/crio/crio.sock
 unix:///var/run/cri-dockerd.sock
 
 export CONTAINER_RUNTIME_ENDPOINT
+
+ctr     contianerD
+nerdctl containerD
+crictl  k8s and all cri compatible runtimes
+
+
+ETCD
