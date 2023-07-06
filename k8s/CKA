@@ -1,0 +1,75 @@
+CKA
+------
+
+https://www.cncf.io/certification/cka/
+
+https://github.com/cncf/curriculum
+
+https://www.cncf.io/certification/candidate-handbook
+
+Exam Tips: http://training.linuxfoundation.org/go//Important-Tips-CKA-CKAD
+
+Use the code - KODEKLOUD20 - while registering for the CKA or CKAD exams at Linux Foundation to get a 20% discount.
+
+https://docs.linuxfoundation.org/tc-docs/certification/faq-cka-ckad-cks
+
+https://training.linuxfoundation.org/?s=kubernetes
+https://docs.linuxfoundation.org/tc-docs/certification/tips-cka-and-ckad
+
+https://github.com/sonyjames9/k8scurriculum
+
+https://trainingportal.linuxfoundation.org/collections/kubernetes-developer
+https://trainingportal.linuxfoundation.org/courses/certified-kubernetes-application-developer-ckad
+
+https://www.cncf.io/certification/ckad/   developer
+https://www.cncf.io/certification/cka/    administrator
+https://training.linuxfoundation.org/skillcred/helm/
+
+https://training.linuxfoundation.org/training/introduction-to-devops-and-site-reliability-engineering-lfs162/
+
+https://training.play-with-kubernetes.com/kubernetes-workshop/
+https://training.play-with-docker.com/alacart/
+
+
+https://app.slack.com/client/TDSBA9B9V/C018VNH04LB/thread/C02LS58EGQ4-1687051526.410079   CodeKloud
+https://app.slack.com/client/T09NY5SBT/C09NXKJKA/thread/C09NXKJKA-1688415137.305689       Kubernetes
+https://kodekloud.com/pages/community
+
+https://github.com/kodekloudhub/community-faq
+https://github.com/kodekloudhub/community-faq#all-exams
+
+https://opensource.com/article/20/7/tmux-cheat-sheet
+https://vim.rtorr.com/
+https://github.com/kodekloudhub/community-faq/blob/main/docs/etcd-faq.md
+
+
+https://github.com/mmumshad/kubernetes-the-hard-way
+https://github.com/kodekloudhub/certified-kubernetes-administrator-course 
+
+https://kubernetes.io/docs/reference/kubectl/cheatsheet/
+
+https://helm.sh/docs/intro/
+
+https://kubernetes.io/docs/concepts/overview/kubernetes-api/
+
+https://www.youtube.com/@kubesimplify/featured
+
+
+NTT is hiring!
+We NTT are looking for engineers who work in Open Source communities like containerd, Docker/Moby, Kubernetes, and their relevant projects. Visit https://www.rd.ntt/e/sic/recruit/ to see how to join us.
+
+https://github.com/containerd/nerdctl
+https://medium.com/nttlabs/nerdctl-359311b32d0e
+
+https://github.com/containerd/containerd/blob/main/docs/getting-started.md
+https://github.com/containerd/nerdctl
+
+https://kubernetes.io/docs/reference/tools/map-crictl-dockercli/
+
+crictl --runtime-endpoint
+unix:///var/run/dockershim.sock
+unix:///run/contianerd/containerd.sock
+unix:///run/crio/crio.sock
+unix:///var/run/cri-dockerd.sock
+
+export CONTAINER_RUNTIME_ENDPOINT
