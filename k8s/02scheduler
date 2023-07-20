@@ -1,5 +1,39 @@
-CKA
+Scheduler
 ------
+https://kubernetes.io/docs/concepts/scheduling-eviction/assign-pod-node/
+
+apiVersion: v1
+kind: Pod
+metadata:
+  name: nginx
+  namespace: dev
+  labels:
+    app: nginx
+spec:
+  containers:
+    - name: nginx-container
+      image: nginx
+      ports:
+        - containerPort: 8080
+  nodeName: node02
+
+For already existing pod, if you need to assign the pod to a node, then you will need to apply below binding object yaml to a pod. Send a POST request to the pods binding data.
+
+apiVersion: v1
+kind: Binding
+metadata:
+  name: nginx
+target:
+  apiVersion: v1
+  kind: Node
+  name: node2
+
+curl --header "Content-Type:application/json" --request POST --data 'above yaml file' http://$$SERVER/api/v1/namespaces/default/pods/$PODNAME/binding/
+
+k describe pod nginx - the node is empty
+k get pods -n kube-system - you should see the scheduler pod
+k replace --force -f nginx.yaml
+k get pods -owide
 
 https://www.cncf.io/certification/cka/
 
