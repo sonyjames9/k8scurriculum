@@ -161,38 +161,385 @@ spec:
       color: blue
 
 # k create deployment red --image=nginx --replicas=2 --dry-run=client -oyaml > red2.yaml
-The Deployment "red" is invalid: spec.template.spec.affinity.nodeAffinity.requiredDuringSchedulingIgnoredDuringExecution.nodeSelectorTerms[0].matchExpressions[0].values: Forbidden: may not be specified when `operator` is 'Exists' or 'DoesNotExist'
+# The Deployment "red" is invalid: spec.template.spec.affinity.nodeAffinity.requiredDuringSchedulingIgnoredDuringExecution.
+# nodeSelectorTerms[0].matchExpressions[0].values: Forbidden: may not be specified when `operator` is 'Exists' or 'DoesNotExist'
 
 ---
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: blue
+  creationTimestamp: null
   labels:
-    color: blue
+    app: red
+  name: red
 spec:
-  replicas: 3
+  replicas: 2
+  selector:
+    matchLabels:
+      app: red
+  strategy: {}
   template:
     metadata:
-      name: blue
+      creationTimestamp: null
       labels:
-        color: blue
+        app: red
     spec:
       containers:
-        - name: nginx-container
-          image: nginx
+      - image: nginx
+        name: nginx
+        resources: {}
       affinity:
         nodeAffinity:
           requiredDuringSchedulingIgnoredDuringExecution:
             nodeSelectorTerms:
             - matchExpressions:
-              - key: color
-                operator: In
-                values:
-                - blue
+              - key: node-role.kubernetes.io/control-plane
+                operator: Exists
+status: {}
+
+Resource Requests --------
+
+apiVersion: v1
+kind: Pod
+metadata:
+  labels:
+    name: bee
+  name: bee
+spec:
+  containers:
+  - name: nginx-container
+    image: nginx
+    resources:
+      requests:
+        memory: "2Gi"
+        cpu: 2
+      limits:
+        memory: "2Gi"
+        cpu: 2
+
+
+CPU ----
+0.1 CPU <-> 100M
+1M
+
+1 CPU
+1 AWS VCPU
+1 GCP Core
+1 Azure Core
+1 Hyperthrea
+
+
+MEMORY -----
+256Mi = 268435456
+268M
+1G    Gigabyte
+1M
+1K
+1Gi   Gibibyte
+1Mi   Mebibyte
+1Ki   Kibibyte
+ 
+CPU ----
+NO REQUESTS
+NO LIMITS
+
+NO REQUESTS
+LIMITS
+
+REQUESTS
+LIMITS
+
+This is the right choice in cpu selection
+REQUESTS
+NO LIMITS
+
+MEMORY ----
+NO REQUESTS
+NO LIMITS
+
+NO REQUESTS
+LIMITS
+
+REQUESTS
+LIMITS
+
+REQUESTS
+NO LIMITS
+
+
+LimitRange -----
+CPU---
+apiVersion: v1
+kind: LimitRange
+metadata:
+  name: cpu-resource-constraint
+spec:
+  limits:
+  - default:
+      cpu: 500m
+    defaultRequest:
+      cpu: 500m
+    max:
+      cpu: "1"
+    min:
+      cpu: 100m
+    type: Container
+
+MEMORY---
+apiVersion: v1
+kind: LimitRange
+metadata:
+  name: memory-resource-constraint
+spec:
+  limits:
+  - default:
+      memory: 1Gi
+    defaultRequest:
+      memory: 1Gi
+    max:
+      memory: 1Gi
+    min:
+      memory: 500Mi
+    type: Container
+
+RESORCE QUOTA ---
+created at namespace level
+
+apiVersion: v1
+kind: ResourceQuota
+metadata:
+  name: my-resource-quota
+spec:
+  hard:
+    requests.cpu: 4
+    requests.memory: 4Gi
+    limits.cpu: 10
+    limits.memory: 10Gi
+
+which will give the complete spec with node name, or:
+kubectl get nodes -o json | jq '.items[].spec'
+kubectl get nodes -o json | jq '.items[].spec.taints'
+
+
+DAEMON SETS ---
+A pod in every node, this is used in logging and monitoring events in a cluster.
+kube-proxy can be deployed as a daemonset in cluster.
+weave-net deploys a networking pod in each cluster.
+
+apiVersion: apps/v1
+kind: DaemonSet
+metadata:
+  name: monitoring-daemon
+  labels: 
+    app: monitoring-agent
+spec:
   selector:
     matchLabels:
-      color: blue
+      app: monitoring-agent
+  template:
+    metadata:
+      labels:
+        app: monitoring-agent
+    spec:
+      containers:
+        - name: monitoring-agent
+          image: monitoring-agent
+
+DS uses default scheduler and node affinity rules to schedule pods on nodes
+
+
+
+
+
+Static pod Busybox
+apiVersion: v1
+kind: Pod
+metadata:
+  labels:
+    run: static-busybox
+  name: static-busybox
+  namespace: default
+spec:
+  containers:
+  - image: busybox
+    imagePullPolicy: Always
+    name: busybox
+    command: ["/bin/sh", "-ec", "sleep 1000"]
+
+apiVersion: v1
+kind: Pod
+metadata:
+  creationTimestamp: null
+  labels:
+    run: static-busybox
+  name: static-busybox
+spec:
+  containers:
+  - command:
+    - sleep
+    - "1000"
+    image: busybox
+    name: static-busybox
+  restartPolicy: Never
+
+Multiple Scheduler ------
+
+apiVersion: kubescheduler.config.k8s.io/v1
+kind: KubeSchedulerConfiguration
+profiles:
+- schedulerName: my-scheduler
+leaderElection:
+  leaderElect: true
+  resourceNamespace: kube-system
+  resourceName: lock-object-my-scheduler
+
+my-custom-scheduler.yaml
+apiVersion: v1
+kind: Pod
+metadata:
+  name: my-custom-scheduler
+  namespace: kube-system
+spec:
+  containers:
+  - image: busybox
+    name: busybox
+    command:
+    - kube-scheduler
+    - --address=127.0.0.1
+    - --kubeconfig=/etc/kubernetes/scheduler.conf
+    - --config=/etc/kubernetes/my-scheduler-config.yaml
+k get events -owide
+k logs custom-scheduler -n=kube-system
+
+k create configmap my-scheduler-config --from-file=/root/my-scheduler-config.yaml -n kube-system
+
+
+controlplane ~ ➜  cat my-scheduler-config.yaml 
+apiVersion: kubescheduler.config.k8s.io/v1beta2
+kind: KubeSchedulerConfiguration
+profiles:
+  - schedulerName: my-scheduler
+leaderElection:
+  leaderElect: false
+
+controlplane ~ ➜  cat nginx-pod.yaml 
+apiVersion: v1 
+kind: Pod 
+metadata:
+  name: nginx 
+spec:
+  schedulerName: my-scheduler
+  containers:
+  - image: nginx
+    name: nginx
+
+controlplane ~ ➜  cat my-scheduler-configmap.yaml
+apiVersion: v1
+data:
+  my-scheduler-config.yaml: |
+    apiVersion: kubescheduler.config.k8s.io/v1beta2
+    kind: KubeSchedulerConfiguration
+    profiles:
+      - schedulerName: my-scheduler
+    leaderElection:
+      leaderElect: false
+kind: ConfigMap
+metadata:
+  creationTimestamp: null
+  name: my-scheduler-config
+  namespace: kube-system
+
+controlplane ~ ➜  cat my-scheduler.yaml 
+apiVersion: v1
+kind: Pod
+metadata:
+  labels:
+    run: my-scheduler
+  name: my-scheduler
+  namespace: kube-system
+spec:
+  serviceAccountName: my-scheduler
+  containers:
+  - command:
+    - /usr/local/bin/kube-scheduler
+    - --config=/etc/kubernetes/my-scheduler/my-scheduler-config.yaml
+    image: registry.k8s.io/kube-scheduler:v1.27.0
+    livenessProbe:
+      httpGet:
+        path: /healthz
+        port: 10259
+        scheme: HTTPS
+      initialDelaySeconds: 15
+    name: kube-second-scheduler
+    readinessProbe:
+      httpGet:
+        path: /healthz
+        port: 10259
+        scheme: HTTPS
+    resources:
+      requests:
+        cpu: '0.1'
+    securityContext:
+      privileged: false
+    volumeMounts:
+      - name: config-volume
+        mountPath: /etc/kubernetes/my-scheduler
+  hostNetwork: false
+  hostPID: false
+  volumes:
+    - name: config-volume
+      configMap:
+        name: my-scheduler-config
+
+
+Scheduler Profiles -----
+Scheduling Queue -> Filtering -> Scoring -> Binding
+Scheduling Queue(PrioritySort) -> Filtering(NodeResourcesFit,NodeName,NodeUnschedulable) -> Scoring(NodeResourcesFit, ImageLocality) -> Binding(DefaultBinder)
+- Extension Point can be plugged to the scheduling plugins
+- Scheduling Queue(queue sort) -> Filtering(preFilter,filter,postFilter) -> Scoring(preScore,score,reserve,permit) -> Binding(preBind,bind,postBind)
+apiVersion: v1 
+kind: Pod 
+metadata:
+  name: nginx 
+spec:
+  priorityClassName: high-priority
+  containers:
+  - image: nginx
+    name: nginx
+
+Sample Multiple Scheduler Profiles -----
+apiVersion: kubescheduler.config.k8s.io/v1
+kind: KubeSchedulerConfiguration
+profiles:
+- schedulerName: my-scheduler-2
+  plugins:
+    score:
+      disabled:
+        - name: TaintToleration
+      enabled:
+        - name: CustomPluginA
+        - name: CustomPluginB
+- schedulerName: my-scheduler-3
+  plugins:
+    preScore:
+      disabled:
+        - name: '*'
+    score:
+      disabled:
+        - name: '*'
+- schedulerName: my-scheduler-4
+
+https://kubernetes.io/docs/tasks/extend-kubernetes/configure-multiple-schedulers/
+
+Scheduler code hierarchy overview
+https://github.com/kubernetes/community/blob/master/contributors/devel/sig-scheduling/scheduling_code_hierarchy_overview.md
+
+Advance Scheduling in K8s ------
+https://kubernetes.io/blog/2017/03/advanced-scheduling-in-kubernetes/
+
+How does Kubernetes' scheduler work?
+https://jvns.ca/blog/2017/07/27/how-does-the-kubernetes-scheduler-work/
+https://stackoverflow.com/questions/28857993/how-does-kubernetes-scheduler-work
 
 
 
@@ -203,9 +550,32 @@ spec:
 
 
 
+AppTension
+SaaS Boilerplate  https://github.com/apptension/saas-boilerplate
+
+DJANGO ----
+https://www.youtube.com/watch?v=nGIg40xs9e4
+
+pip3 install django
+django-admin startproject demo
+
+cd demo
+python manage.py startapp myapp
 
 
 
+Ujivan Small
+Jana Small
+Equitas
+AU Small
+Capital Small
+Fincare Small
+ESAF Small
+North east Small
+Suryoday
+Utkarsh
+Shivalik
+Unity Small
 
 
 https://www.cncf.io/certification/cka/
