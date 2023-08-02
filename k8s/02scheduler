@@ -17,6 +17,7 @@ spec:
         - containerPort: 8080
   nodeName: node02
 
+
 For already existing pod, if you need to assign the pod to a node, then you will need to apply below binding object yaml to a pod. Send a POST request to the pods binding data.
 
 apiVersion: v1
@@ -34,6 +35,178 @@ k describe pod nginx - the node is empty
 k get pods -n kube-system - you should see the scheduler pod
 k replace --force -f nginx.yaml
 k get pods -owide
+
+LABELS -------
+k get pods -l env=prod,bu=finance --no-headers
+k get pods -l env=prod,bu=finance --no-headers | wc -l
+k get all -l env=prod,bu=finance --no-headers | wc -l
+
+TAINTS AND TOLERATIONS -------
+
+k taint nodes node-name key=value:taint-effect
+No schedule | PreferNoSchedule | NoExecute - evicted
+
+NoSchedule - Pods will not be scheduled on the nodes
+PreferNoSchedule - system will try to avoid placing the pod, but not guaranteed
+NoExecute - new pods will not be scheduled and existing ones are evicted 
+
+k taint nodes node1 app=blue:NoSchedule
+k taint nodes node1 app=blue:NoSchedule-
+k describe node kubemaster | grep Taint
+k describe node controlplane | grep -i Taint
+
+k taint nodes node01 spray=mortein:NoSchedule
+k taint nodes controlplane node-role.kubernetes.io/control-plane:NoSchedule-
+
+k run mosquito --image=nginx --port=8080
+
+apiVersion: v1
+kind: Pod
+metadata:
+  labels:
+    name: bee
+  name: bee
+spec:
+  containers:
+    - name: nginx-container
+      image: 
+  restartPolicy: Always
+  dnsPolicy: ClusterFirst
+  tolerations:
+  - key: "spray"
+    operator: "Equal"
+    value: "mortein"
+    effect: NoSchedule
+
+k run bee --image=nginx --dry-run=client -o yaml > bee.yaml
+
+
+Node selector
+k label nodes <node-name> <key>=<value>
+k label nodes node-01 size=Large
+
+apiVersion: v1
+kind: Pod
+metadata:
+  labels:
+    name: bee
+  name: bee
+spec:
+  containers:
+    - name: nginx-container
+      image: nginx
+  nodeSelector:
+    size: Large
+
+apiVersion: v1
+kind: Pod
+metadata:
+  labels:
+    name: bee
+  name: bee
+spec:
+  containers:
+    - name: nginx-container
+      image: nginx
+  affinity:
+    nodeAffinity:
+      requiredDuringSchedulingIgnoredDuringExecution:
+        nodeSelectorTerms:
+        - matchExpressions:
+          - key: size
+            operator: In
+            values:
+            - Large
+            - Medium
+
+operator: In, NotIn, Exists
+
+NodeAffinityTypes
+available - 
+requiredDuringSchedulingIgnoredDuringExecution:
+preferredDuringSchedulingIgnoredDuringExecution:
+
+planned - 
+requiredDuringSchedulingRequiredDuringExecution:
+
+
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: blue
+  labels:
+    color: blue
+spec:
+  replicas: 3
+  template:
+    metadata:
+      name: blue
+      labels:
+        color: blue
+    spec:
+      containers:
+        - name: nginx-container
+          image: nginx
+      affinity:
+        nodeAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+            nodeSelectorTerms:
+            - matchExpressions:
+              - key: color
+                operator: In
+                values:
+                - blue
+  selector:
+    matchLabels:
+      color: blue
+
+# k create deployment red --image=nginx --replicas=2 --dry-run=client -oyaml > red2.yaml
+The Deployment "red" is invalid: spec.template.spec.affinity.nodeAffinity.requiredDuringSchedulingIgnoredDuringExecution.nodeSelectorTerms[0].matchExpressions[0].values: Forbidden: may not be specified when `operator` is 'Exists' or 'DoesNotExist'
+
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: blue
+  labels:
+    color: blue
+spec:
+  replicas: 3
+  template:
+    metadata:
+      name: blue
+      labels:
+        color: blue
+    spec:
+      containers:
+        - name: nginx-container
+          image: nginx
+      affinity:
+        nodeAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+            nodeSelectorTerms:
+            - matchExpressions:
+              - key: color
+                operator: In
+                values:
+                - blue
+  selector:
+    matchLabels:
+      color: blue
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 https://www.cncf.io/certification/cka/
 
