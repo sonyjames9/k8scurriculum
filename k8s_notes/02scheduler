@@ -43,6 +43,8 @@ k get all -l env=prod,bu=finance --no-headers | wc -l
 
 TAINTS AND TOLERATIONS -------
 
+https://blog.kubecost.com/blog/kubernetes-taints/
+
 k taint nodes node-name key=value:taint-effect
 No schedule | PreferNoSchedule | NoExecute - evicted
 
@@ -541,41 +543,11 @@ How does Kubernetes' scheduler work?
 https://jvns.ca/blog/2017/07/27/how-does-the-kubernetes-scheduler-work/
 https://stackoverflow.com/questions/28857993/how-does-kubernetes-scheduler-work
 
+----------------------
 
 
 
 
-
-
-
-
-
-AppTension
-SaaS Boilerplate  https://github.com/apptension/saas-boilerplate
-
-DJANGO ----
-https://www.youtube.com/watch?v=nGIg40xs9e4
-
-pip3 install django
-django-admin startproject demo
-
-cd demo
-python manage.py startapp myapp
-
-
-
-Ujivan Small
-Jana Small
-Equitas
-AU Small
-Capital Small
-Fincare Small
-ESAF Small
-North east Small
-Suryoday
-Utkarsh
-Shivalik
-Unity Small
 
 
 https://www.cncf.io/certification/cka/
