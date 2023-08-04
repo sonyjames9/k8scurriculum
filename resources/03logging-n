@@ -1,7 +1,32 @@
-Logging
--------
+Logging and Monitor
+--------------------
 https://kubernetes.io/docs/tasks/debug/debug-cluster/resource-usage-monitoring/
 
+https://kubernetes.io/docs/tasks/administer-cluster/manage-resources/
+
+kubelet is responsible for receiving instructions from the k8s API master server and runnng pods on the nodes.
+Kubelet also contains a sub component known as CAdvisor/Container Advisor.
+Cadvisor is responsible for retrieving performance metrics from pods and exposing them through the kubelet API to make the metrics available for the Metrics Server. 
+> minicube addons enable metrics-server
+> git clone https://kubernetes.io/docs/tasks/administer-cluster/manage-resources/
+> k create -f deploy/1.27+/
+> k top node
+> k top pod
+
+> git clone https://github.com/kodekloudhub/kubernetes-metrics-server.git
+
+k create -f event-sim.yaml
+apiVersion: v1
+kind: Pod
+metadata:
+  name: event-simulator-pod
+  labels:
+spec:
+  containers:
+    - name: event-simulator
+      image: kodekloud/event-simulator
+
+k logs -f event-simulator-pod
 
 
 
