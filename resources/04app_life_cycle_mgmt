@@ -40,6 +40,273 @@ spec:
     command: ["sleep", "5000"]
 
 
+Commands Docker and k8s ------
+--------------------
+
+FROM Ubuntu
+ENTRYPOINT ["sleep"]
+CMD ["5"]
+docker run ubuntu-sleeper 10
+docker run --entrypoint sleep2.0 ubuntu-sleeper 10
+docker run --name ubuntu-sleeper ubuntu-sleeper
+docker run --name ubuntu-sleeper ubuntu-sleeper 10
+
+apiVersion: v1
+kind: Pod
+metadata:
+  name: ubuntu-sleeper-pod
+spec:
+  containers:
+    - name: ubuntu-sleeper
+      image: ubuntu-sleeper
+      args: ["10"]
+
+apiVersion: v1
+kind: Pod
+metadata:
+  name: ubuntu-sleeper-pod
+spec:
+  containers:
+    - name: ubuntu-sleeper
+      image: ubuntu-sleeper
+      command: ["sleep2.0"] #is same as docker ENTRYPOINT
+      args: ["10"]          # is same as docker ENTRYPOINT
+
+k create -f pod-fed.yaml
+
+apiVersion: v1 
+kind: Pod 
+metadata:
+  name: ubuntu-sleeper-2 
+spec:
+  containers:
+  - name: ubuntu
+    image: ubuntu
+    command:
+      - "sleep"
+      - "5000"
+
+FROM python:3.6-alpine
+RUN pip install flask
+COPY . /opt/
+EXPOSE 8080
+WORKDIR /opt
+ENTRYPOINT ["python", "app.py"]
+CMD ["--color", "red"]
+
+controlplane ~ ➜  cat webapp-color-3/Dockerfile 
+FROM python:3.6-alpine
+RUN pip install flask
+COPY . /opt/
+EXPOSE 8080
+WORKDIR /opt
+ENTRYPOINT ["python", "app.py"]
+CMD ["--color", "red"]
+
+controlplane ~ ➜  cat webapp-color-3/webapp-color-pod-2.yaml 
+apiVersion: v1 
+kind: Pod 
+metadata:
+  name: webapp-green
+  labels:
+      name: webapp-green 
+spec:
+  containers:
+  - name: simple-webapp
+    image: kodekloud/webapp-color
+    command: ["python", "app.py"]
+    args: ["--color", "pink"]
+
+k run webapp-green --image=kodekloud/webapp-color -- --color green
+k run webapp-green --image=kodekloud/webapp-color --command -- python app2.py -- --color green
+k replace --force -f /tmp/k-edit-file.yaml
+
+
+ENV VARS
+--------------------
+1. Plain key value
+2. ConfigMap
+3. Secrets
+
+docker run -e APP_COLOR=pink simple-webapp-color
+
+apiVersion: v1 
+kind: Pod 
+metadata:
+  name: simple-webapp-color
+spec:
+  containers:
+  - name: simple-webapp-color
+    image: simple-webapp-color
+    ports:
+      - containerPort: 8080
+    env:
+      - name: APP_COLOR
+        value: pink
+
+#Configmaps
+    env:
+      - name: APP_COLOR
+        valueFrom:
+            configMapKeyRef: 
+
+#Secrets
+    env:
+      - name: APP_COLOR
+        valueFrom:
+            secretKeyRef: 
+
+apiVersion: v1 
+kind: Pod 
+metadata:
+  name: simple-webapp-color
+spec:
+  containers:
+  - name: simple-webapp-color
+    image: simple-webapp-color
+    ports:
+      - containerPort: 8080
+    envFrom:
+      - configMapKeyRef:
+          name: app-config
+          key: APP_COLOR
+
+apiVersion: v1 
+kind: Pod 
+metadata:
+  name: webapp-color
+  labels:
+    name: webapp-color
+spec:
+  containers:
+  - name: webapp-color
+    image: kodekloud/webapp-color
+    envFrom:
+      - configMapRef:
+          name: webapp-config-map
+
+
+2 Phases in creating config map
+1. Create ConfigMap
+2. Inject the configMap into Pod
+
+1. k create configmap    Imperative
+2. k create -f           Declarative
+
+k create configmap \
+  app-config --from-literal=APP_COLOR=blue
+
+k create configmap \
+  app-config2 --from-literal=APP_COLOR=darkblue \ 
+  -from-literal=APP_OTHER=disregard
+
+k create configmap <config-name> --from-file=<path-to-file>
+k create configmap \
+  app-config --from-file=app_config.properties
+
+configmap.yaml
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: app-config
+data:
+  APP_COLOR: blue
+  APP_MODE: prod
+
+k create -f configmap.yaml
+
+
+app-config:
+APP_COLOR: blue
+APP_MODE: prod
+
+mysql-config:
+port: 3306
+max_allowed_packet: 128M
+
+redis-config:
+port: 6379
+rdb-compression: yes
+
+k get configmaps
+k describe configmaps
+
+apiVersion: v1 
+kind: Pod 
+metadata:
+  name: simple-webapp-color
+spec:
+  containers:
+  - name: simple-webapp-color
+    image: simple-webapp-color
+    ports:
+      - containerPort: 8080
+    envFrom:
+      - configMapKeyRef:
+          name: app-config
+
+spec:
+  containers:
+    - name: test-container
+      image: gcr.io/google_containers/busybox
+      command: ["/bin/sh", "-c", "env"]
+      env:
+        - name: SPECIAL_LEVEL_KEY
+          valueFrom:
+            configMapKeyRef:
+              name: a-config
+              key: akey
+
+spec:
+  containers:
+    - name: test-container
+      image: registry.k8s.io/busybox
+      command: [ "/bin/sh", "-c", "env" ]
+      envFrom:
+      - configMapRef:
+          name: special-config
+
+spec:
+  containers:
+    - name: test-container
+      image: registry.k8s.io/busybox
+      command: [ "/bin/sh", "-c", "env" ]
+      env:
+        - name: SPECIAL_LEVEL_KEY
+          valueFrom:
+            configMapKeyRef:
+              name: special-config
+              key: special.how
+        - name: LOG_LEVEL
+          valueFrom:
+            configMapKeyRef:
+              name: env-config
+              key: log_level
+
+
+k get pods -A --no-headers | wc -l 
+
+https://kubernetes.io/docs/concepts/configuration/configmap/
+https://kubernetes.io/docs/tasks/configure-pod-container/configure-pod-configmap/
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
@@ -80,8 +347,6 @@ spec:
       image: kodekloud/event-simulator
 
 k logs -f event-simulator-pod
-
-
 
 
 
