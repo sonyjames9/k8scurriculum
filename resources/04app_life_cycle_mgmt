@@ -290,6 +290,266 @@ https://kubernetes.io/docs/concepts/configuration/configmap/
 https://kubernetes.io/docs/tasks/configure-pod-container/configure-pod-configmap/
 
 
+Secrets --------------------
+Secrets are used to store password or keys(sensitive information). They are stored in encoded base64 format.
+1. Create Secret
+2. Inject Secret
+
+Imperative --------
+k create secret generic
+k create secret generic <secret-name> --form-literal=<key>=<value>
+k create secret generic \
+app-secret --form-literal=DB_Host=MYSQL \
+           --form-literal=DB_User=root \
+           --form-literal=DB_Password=paswrd
+k create secret generic <secret-name> --from-file=<path-to-file>
+k create secret generic \
+app-secret --from-file=app-secret.properties
+
+Declarative --------
+k create -f secret.yaml
+apiVersion: v1
+kind: Secret
+metadata:
+  name: app-secret
+data:
+  DB_Host: bXlzcWw=
+  DB_User: cm9vdA==
+  DB_Password: cGFzd3Jk
+
+echo -n 'mysql' | base64
+bXlzcWw=
+echo -n 'root' | base64
+cm9vdA==
+echo -n 'paswrd' | base64
+cGFzd3Jk
+
+k get secrets
+k desscribe secrets
+k get secrets app-secret -oyaml
+
+echo -n 'bXlzcWw=' | base64 --decode
+mysql
+echo -n 'cm9vdA==' | base64 --decode
+root
+echo -n 'cGFzd3Jk' | base64 --decode
+paswrd
+
+apiVersion: v1
+kind: Pod
+metadata:
+  name: nginx
+  namespace: dev
+  labels:
+    app: nginx
+spec:
+  containers:
+    - name: nginx-container
+      image: nginx
+      ports:
+        - containerPort: 8080
+      envFrom:
+        - secretRef:
+            name: app-secret
+
+k create -f pod-def.yaml
+
+SingleEnv ------
+env:
+  - name: DB_Password
+    valueFrom:
+      secretKeyRef:
+        name: app-secret
+        key: DB_Password
+
+Volume -------
+volumes:
+- name: app-secret-volume
+  secret:
+    secretName: app-secret
+
+If you check inside volumes inside container you can find secrets at this location
+
+ls /opt/app-secret-volumes
+DB_Host         DB_Password         DB_User
+
+cat /opt/app-secret-volumes/DB_Password
+paswrd
+
+-- Secrets are not encrypted, only encoded.
+-- Do not checkin secret objects to SCM along with code
+-- Secrets are not encrypted in ETCD, consider enablling encryption at REST.
+https://kubernetes.io/docs/tasks/administer-cluster/encrypt-data/
+
+-- Anyone able to create pods/deployments in the same namespace can access the secrets.
+-- Consider least privilege access to Secrets - RBAC.
+-- Consider 3rd party secret store providers like AWS Provider, Azure Provider, GCP Provider, Vault Provider -- this way the secrets are not stored in etcd but external secret provider those providers take care of most of the security.
+
+https://kubernetes.io/docs/concepts/configuration/secret/#protections
+https://kubernetes.io/docs/concepts/configuration/secret/#risks
+
+https://www.vaultproject.io/
+Having said that, there are other better ways of handling sensitive data like passwords in Kubernetes, such as using tools like Helm Secrets, HashiCorp Vault. I hope to make a lecture on these in the future.
+
+
+kubeadm init --apiserver-advertise-address $(hostname -i) --pod-network-cidr 10.5.0.0/16
+kubectl apply -f https://raw.githubusercontent.com/cloudnativelabs/kube-router/master/daemonset/kubeadm-kuberouter.yaml
+kubectl apply -f https://raw.githubusercontent.com/kubernetes/website/master/content/en/examples/application/nginx-app.yaml
+alias k=kubectl
+k taint node node1 node-role.kubernetes.io/control-plane:NoSchedule-
+yum install wget -y
+wget https://go.dev/dl/go1.21.0.linux-amd64.tar.gz
+tar -C /usr/local -xzf go1.21.0.linux-amd64.tar.gz
+export PATH=$PATH:/usr/local/go/bin                                   
+go version
+go install github.com/coreos/etcd/etcdctl@latest
+cd etcd/bin
+
+
+ETCDCTL_API=3 ./etcdctl --cacert=/etc/kubernetes/pki/etcd/ca.crt --cert=/etc/kubernetes/pki/etcd/server.crt --key=/etc/kubernetes/pki/etcd/server.key get /registry/secrets/default/
+
+[node1 bin]$ ETCDCTL_API=3 ./etcdctl --cacert=/etc/kubernetes/pki/etcd/ca.crt --cert=/etc/kubernetes/pki/etcd/server.crt --key=/etc/kubernetes/pki/etcd/server.key get /registry/secrets/default/my-sec
+
+/etc/kubernetes/manifests/kube-apiserver.yaml
+
+
+k taint node node1 node-role.kubernetes.io/control-plane:NoSchedule-  #Remove node taint if present on a node
+
+k create secret generic my-sec --from-literal=key1=secretkeylol
+
+encrypt.yaml
+apiVersion: apiserver.config.k8s.io/v1
+kind: EncryptionConfiguration
+resources:
+  - resources:
+      - secrets
+    providers:
+      - aescbc:
+          keys:
+            - name: key1
+              # See the following text for more details about the secret value
+              secret: aBRN2uGzTsrN3XSeXgXM5OImPNMKgg9DKfSYzzxzADA=
+      - identity: {}
+[node1 bin]$ mkdir /etc/kubernetes/enc
+[node1 bin]$ mv encrypt.yaml /etc/kubernetes/enc                                     
+[node1 bin]$ ls /etc/kubernetes/enc
+encrypt.yaml
+
+[node1 bin]$ vi /etc/kubernetes/manifests/kube-apiserver.yaml
+
+spec:
+  containers:
+  - command:
+    - kube-apiserver
+    - --advertise-address=192.168.0.8
+    ...
+    - --encryption-provider-config=/etc/kubernetes/enc/encrypt.yaml
+    volumeMounts:             # MOUNTING OF POD VOLUME
+    ...
+    - name: enc                           # add this line
+      mountPath: /etc/kubernetes/enc      # add this line
+      readonly: true
+  volumes:                    # MOUNTING OF LOCAL CLUSTER VOLUME
+  ...
+  - name: enc                             # add this line
+    hostPath:                             # add this line
+      path: /etc/kubernetes/enc           # add this line
+      type: DirectoryOrCreate
+
+kube-apiserver will restart
+k create secret generic my-sec2 --from-literal=key1=secretkeylol
+
+Now new secret keys will be encrypted
+[node1 bin]$ ETCDCTL_API=3 ./etcdctl --cacert=/etc/kubernetes/pki/etcd/ca.crt --cer
+etc/kubernetes/pki/etcd/server.crt --key=/etc/kubernetes/pki/etcd/server.key get /r
+stry/secrets/default/my-sec2 | hexdump -C
+
+Ensure older secrets are also encrypted after above secret encryption steps
+kubectl get secrets --all-namespaces -o json | kubectl replace -f -
+https://chromium.googlesource.com/external/github.com/coreos/etcd/+/release-3.0/etcdctl/README.md
+
+MULTI CONTAINER Pod --------------------
+apiVersion: v1
+kind: Pod
+metadata:
+  name: nginx
+  namespace: dev
+  labels:
+    app: nginx
+spec:
+  containers:
+    - name: nginx-container
+      image: nginx
+      ports:
+        - containerPort: 8080
+    - name: log-agent
+      image: log-agent
+  
+
+k run yellow --image=busybox --dry-run=client -o yaml
+k -n elastic-stack exec -it app --  /log/app.log
+
+apiVersion: v1
+kind: Pod
+metadata:
+  labels:
+    name: app
+  name: app
+  namespace: elastic-stack
+spec:
+  containers:
+  - image: kodekloud/event-simulator
+    name: app
+    terminationMessagePath: /dev/termination-log
+    terminationMessagePolicy: File
+    volumeMounts:
+    - mountPath: /log
+      name: log-volume
+    - mountPath: /var/run/secrets/kubernetes.io/serviceaccount
+      name: kube-api-access-h68qm
+      readOnly: true
+  - image: kodekloud/filebeat-configured
+    name: sidecar
+    volumeMounts:
+    - mountPath: /var/log/event-simulator/ #LOGS ARE READ AND SENT TO ELASTICSEARCG
+      name: log-volume
+
+MULTI CONTAINER PODS DESIGN PATTERN
+1. Sidecar
+2. Adapter
+3. Ambassador
+
+
+INIT CONTAINER --------------------
+apiVersion: v1
+kind: Pod
+metadata:
+  name: myapp-pod
+  labels:
+    app: myapp
+spec:
+  containers:
+  - name: myapp-container
+    image: busybox:1.28
+    command: ['sh', '-c', 'echo The app is running! && sleep 3600']
+  initContainers:
+  - name: init-myservice
+    image: busybox:1.28
+    command: ['sh', '-c', 'until nslookup myservice; do echo waiting for myservice; sleep 2; done;']
+  - name: init-mydb
+    image: busybox:1.28
+    command: ['sh', '-c', 'until nslookup mydb; do echo waiting for mydb; sleep 2; done;']
+
+https://kubernetes.io/docs/concepts/workloads/pods/init-containers/
+
+SELF HEALING APP
+Kubernetes supports self-healing applications through ReplicaSets and Replication Controllers. The replication controller helps in ensuring that a POD is re-created automatically when the application within the POD crashes. It helps in ensuring enough replicas of the application are running at all times.
+Kubernetes provides additional support to check the health of applications running within PODs and take necessary actions through Liveness and Readiness Probes. However these are not required for the CKA exam and as such they are not covered here. These are topics for the Certified Kubernetes Application Developers (CKAD) exam and are covered in the CKAD course.
+
+
+
+
+
 
 
 
