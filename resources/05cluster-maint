@@ -1,5 +1,155 @@
 Cluster Maintenance 
 --------------------
+k drain node01   -- drain pods onto another node, pods are gracefully terminated and recreated on another node
+- Node is also cordoned or marked as unschedulable, no pods can be scheduled until the restriction is removed specifically.
+Once all pods are moved to another node, the node from which all pods were drained can be reboot or updated as required.
+When the node comes back online, the node is still unschedulable, the node needs to be uncordon so pods can be scheduled on it again.
+
+k drain node01
+k cordon node02
+k uncordon node01
+k drain node01 --ignore-daemonsets
+k get pods --field-selector spec.nodeName=node01
+k get pods -owide
+kubectl get pods -o wide --show-labels
+
+Pods not managed by RC,RS,Job,DS, SS will get deleted when node is drained.
+RC,RS,Job,DS, SS will ensure pods are recreated on other nodes
+
+API Version - k8s version --------------------
+- v1.11.3 major.minor.patch
+kubernetes releases pages
+executables in tar.gz in each release
+
+The Kubernetes API https://kubernetes.io/docs/concepts/overview/kubernetes-api/
+Client libraires https://kubernetes.io/docs/reference/using-api/client-libraries/
+API Conventions https://github.com/kubernetes/community/blob/master/contributors/devel/sig-architecture/api-conventions.md
+Changing the API https://github.com/kubernetes/community/blob/master/contributors/devel/sig-architecture/api_changes.md
+
+
+Cluster Update Process --------------------
+controlplane components ----
+1. kube-apiserver         x         v1.10
+2. controller-manager     x-1       v1.9/10
+3. kube-scheduler         x-1       v1.9/10
+4. kubelet                x-2       v1.8/9/10
+5. kube-proxy             x-2       v1.8/9/10
+6. kubectl                x+1 > x-1 v1.11/10/9
+
+7. etcd cluster
+8. coreDNS
+
+Recent 3 minor versions are supported. 1.10/11/12
+
+k upgrade plan
+k upgrade apply
+
+First master nodes and then worker nodes
+apiserver/scheduler/controller-manager goes down briefly in master nodes. During this time
+1. no new deployment/modifictaions takes place
+2. controller-manager dont function either, deleted pod is not respawned
+3. worker and applications are not impacted
+4. No access via kubectl/k8s api
+5. Users will not be impacted
+
+The master node is updated to latest and then its time for worker nodes to update.
+1. Upgrade all nodes at same time - there is significant downtime in this approach, no apps, deployments or users. Only after the update all pods, resources are in working condition
+2. Upgrade nodes one at a time, workload and resources are moved to other nodes meantime. Once node1 is backup with upgraded k8s version; the workloads and resources are moved back to worker node01. This is performed for all nodes
+3. Add new nodes with newer software version to cluster, this is live working scenario in cloud env where you can easily provision new nodes and decomission old ones. Workloads will be moved to newer node, this process continues until every node workloads and resources are migrated to new node version
+
+
+Upgrade 1.11 to 1.13
+kubeadm upgrade plan
+1.11 -> 1.12 -> 1.13
+apt-get upgrade -y kubernetes=1.12.0-00
+k upgrade apply v1.12.0
+k get nodes
+master  READY   MASTER  V1.11.3
+node01  READY   NONE    V1.11.3
+
+
+ALWAYS Upgrade kubelets MANUALLY
+apt-get upgrade -y kubernetes=1.12.0-00
+systemctl restart kubelet
+k get nodes
+master  READY   MASTER  V1.12.0
+node01  READY   NONE    V1.11.3
+
+k drain node01
+apt-get upgrade -y kubernetes=1.12.0-00
+# Upgrade kubeadm and kubelet packages like in master node
+kubeadm upgrade node config --kubelet-version v1.12.0
+systemctl restart kubelet
+k uncordon node01
+
+node was unschedulable and after marking it as schedulable, the pods/resources/workloads can only come back to the new node when pods are respawned.
+
+
+Updating k8s from 1.24.0 to 1.27.0
+1. First find the release of the master/slave nodes
+2. cat /etc/*release*
+3. Upgrade kubeadm tool as per release version
+4. Apply kubeadm upgrade apply v1.27.0
+5. Drain the controlplane 
+6. Now upgrade kubelet and kubectl
+7. reload daemon, restart kubelet
+8. k uncordon the master node
+
+#Worker node
+1. SSH to worker node, the release of worker node should be same as master node
+2. cat /etc/*release*
+3. Upgrade kubeadm tool as per release version
+4. Apply kubeadm upgrade apply v1.27.0
+5. Drain the controlplane 
+6. Now upgrade kubelet and kubectl
+7. reload daemon, restart kubelet
+8. k uncordon the worker node from master node
+
+apt update
+apt-cache madison kubeadm
+pick the latest to 1.25.0 first
+ upgrade master controlplane then go to worker nodes
+>apt-mark unhold kubeadm && apt-get update && apt-get install -y kubeadm-1.27.0-00 && apt-mark hold kubeadm
+>apt-mark unhold kubeadm && apt-get update && apt install -y kubeadm=1.27.0-00 && apt-mark hold kubeadm
+
+> kubeadm version
+> kubeadm upgrade plan
+> kubeadm upgrade apply v1.25.10
+> kubeadm upgrade apply v1.27.0
+
+kubelet has to be manually upgraded on master nodes--
+> k drain controlplane --ignore-daemonsets
+> apt-mark unhold kubelet kubectl && apt-get update && apt-get install -y kubelet=1.25.10-00 kubectl-1.25.10-00 && apt-mark hold kubelet kubectl
+> apt-mark unhold kubelet kubectl && apt-get update && apt install -y kubelet=1.27.0-00 kubectl=1.27.0-00 && apt-mark hold kubelet kubectl
+
+> sudo systemctl daemon-reload
+> sudo systemctl restart kubelet
+> k uncordon controlplane
+
+
+## Worker nodes
+> ssh node01
+>apt-mark unhold kubeadm && apt-get update && apt-get install -y kubeadm-1.25.10-00 && apt-mark hold kubeadm
+>apt-mark unhold kubeadm && apt-get update && apt install -y kubeadm=1.27.0-00 && apt-mark hold kubeadm
+>sudo kubeadm upgrade node
+
+kubelet has to be manually upgraded on master nodes--
+> k drain node01 --ignore-daemonsets
+> apt-mark unhold kubelet kubectl && apt-get update && apt-get install -y kubelet=1.27.0-00 kubectl=1.27.0-00 && apt-mark hold kubelet kubectl
+> apt-mark unhold kubelet kubectl && apt-get update && apt install -y kubelet=1.27.0-00 kubectl=1.27.0-00 && apt-mark hold kubelet kubectl
+
+> sudo systemctl daemon-reload
+> sudo systemctl restart kubelet
+> k uncordon node01     #TO BE DONE ON MASTER NODE
+
+Backup and Restore Methodologies --------
+1. Resource Config
+2. ETCD cluster
+3. Persistent Volumes
+
+
+
+
 
 
 
