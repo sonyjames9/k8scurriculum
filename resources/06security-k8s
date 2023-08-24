@@ -1,3 +1,21 @@
+------------------------------------
+SECURITY IN K8S START
+------------------------------------
+
+
+
+
+
+
+
+
+
+SECURITY IN K8S END
+------------------------------------
+
+
+
+
 Cluster Maintenance 
 --------------------
 k drain node01   -- drain pods onto another node, pods are gracefully terminated and recreated on another node
