@@ -144,16 +144,137 @@ kubelet has to be manually upgraded on master nodes--
 
 Backup and Restore Methodologies --------
 1. Resource Config
+   1. backing up resource configs should be on git
+   2. k get all --all-namespaces -o yaml > all-deployment-services.yaml
+   3. tools like Ark/Velero
 2. ETCD cluster
+   1. etcd is hosted on master nodes, the back up of data dir while etcd service is created is vital -- data-dir=/var/lib/etcd
+   2. ETCDCTL_API=3 etcdctl snapshot save snapshot.db
+   ls ./
+   ETCDCTL_API=3 etcdctl snapshot status snapshot.db
+   #####RESTORE
+   3. service kube-apiserver stop
+   4. ETCDCTL_API=3 etcdctl snapshot restore snapshot.db --data-dir /var/lib/etcd-from-backup
+   5. Use the new data dir while etcd service is created --data-dir /var/lib/etcd-from-backup
+   6. systemctl daemon-reload
+   7. service etcd restart
+   8. service kube-apiserver start
+   9. ETCDCTL_API=3 etcdctl snapshot save snapshot.db \
+   --ednpoints=https://127.0.0.1:2379 \
+   --cacert=/etc/etcd/ca.crt \
+   --cert=/etc/etcd/etcd-server.crt \
+   --key=/etc/etcd/etcd-server.key 
+Note: In managed k8s solution, there is no way to access etcd server, for this case its best to backup by quering the KubeAPIServer
 3. Persistent Volumes
 
 
 
+For example, if you want to take a snapshot of etcd, use:
+etcdctl snapshot save -h and keep a note of the mandatory global options.
+Since our ETCD database is TLS-Enabled, the following options are mandatory:
+--cacert                                                verify certificates of TLS-enabled secure servers using this CA bundle
+--cert                                                    identify secure client using this TLS certificate file
+--endpoints=[127.0.0.1:2379]          This is the default as ETCD is running on master node and exposed on localhost 2379.
+--key                                                      identify secure client using this TLS key file
+
+Similarly use the help option for snapshot restore to see all available options for restoring the backup.
+etcdctl snapshot restore -h
+
+ETCD Server cert /etc/kubernetes/pki/etcd/server.crt
+ETCD Server CA cert /etc/kubernetes/pki/etcd/ca.crt
+
+# Save snapshot
+ETCDCTL_API=3 etcdctl snapshot save /opt/snapshot-pre-boot.db --endpoints=https://127.0.0.1:2379  --cacert=/etc/kubernetes/pki/etcd/ca.crt --cert=/etc/kubernetes/pki/etcd/server.crt --key=/etc/kubernetes/pki/etcd/server.key
+
+ETCDCTL_API=3 etcdctl snapshot restore /var/lib/etcd-from-backup /opt/snapshot-pre-boot.db --endpoints=https://127.0.0.1:2379  --cacert=/etc/kubernetes/pki/etcd/ca.crt --cert=/etc/kubernetes/pki/etcd/server.crt --key=/etc/kubernetes/pki/etcd/server.key
+
+# Restore snapshot
+ETCDCTL_API=3 etcdctl snapshot restore --data-dir /var/lib/etcd-from-backup /opt/snapshot-pre-boot.db --endpoints=https://127.0.0.1:2379  --cacert=/etc/kubernetes/pki/etcd/ca.crt --cert=/etc/kubernetes/pki/etcd/server.crt --key=/etc/kubernetes/pki/etcd/server.key
+
+The hostPath has to be updated
+  volumes:
+  - hostPath:
+      path: /etc/kubernetes/pki/etcd
+      type: DirectoryOrCreate
+    name: etcd-certs
+  - hostPath:  ####### This below path is to be changed in /etc/kubernetes/manifests/etcd.yaml 
+      path: /var/lib/etcd
+      type: DirectoryOrCreate
+    name: etcd-data
+/etc/kubernetes/manifests/etcd.yaml 
+
+k config view
+
+kubectl config use-context cluster1
+kubectl config use-context cluster2
+
+Find external/stacked etcd in cluster 1 and cluseter2
+k describe pod kube-apiserver-cluster1-controlplane -n kube-system
+you find the etcd server and get to know if its stacked etcd or not
+Command:
+kube-apiserver
+--etcd-servers=https://127.0.0.1:2379
+
+cluster2 -------
+    Command:
+      kube-apiserver
+      --advertise-address=192.12.101.6
+      --allow-privileged=true
+      --authorization-mode=Node,RBAC
+      --client-ca-file=/etc/kubernetes/pki/ca.crt
+      --enable-admission-plugins=NodeRestriction
+      --enable-bootstrap-token-auth=true
+      --etcd-cafile=/etc/kubernetes/pki/etcd/ca.pem
+      --etcd-certfile=/etc/kubernetes/pki/etcd/etcd.pem
+      --etcd-keyfile=/etc/kubernetes/pki/etcd/etcd-key.pem
+      --etcd-servers=https://192.12.101.18:2379
 
 
 
+--etcd-servers=https://192.12.101.18
 
 
+
+ETCDCTL_API=3 etcdctl snapshot save /opt/cluster1.db --endpoints=https://127.0.0.1:2379  --cacert=/etc/kubernetes/pki/etcd/ca.crt --cert=/etc/kubernetes/pki/etcd/server.crt --key=/etc/kubernetes/pki/etcd/server.key
+
+ETCDCTL_API=3 etcdctl snapshot save /opt/cluster1.db --endpoints=https://192.12.101.3:2379  --cacert=/etc/kubernetes/pki/etcd/ca.crt --cert=/etc/kubernetes/pki/etcd/server.crt --key=/etc/kubernetes/pki/etcd/server.key
+
+ETCDCTL_API=3 etcdctl member list --endpoints=https://192.12.101.3:2379  --cacert=/etc/kubernetes/pki/etcd/ca.crt --cert=/etc/kubernetes/pki/etcd/server.crt --key=/etc/kubernetes/pki/etcd/server.key
+
+ETCDCTL_API=3 etcdctl member list --endpoints=https://127.0.0.1:2379 --cacert=/etc/etcd/pki/ca.pem --cert=/etc/etcd/pki/etcd.pem --key=/etc/etcd/pki/etcd-key.pem
+f869812ad900e4e7, started, etcd-server, https://192.13.54.24:2380, https://192.13.54.24:2379, false
+
+k describe pod etcd-cluster1-controlplane -n kube-system | grep server
+k describe pod etcd-cluster1-controlplane -n kube-system | grep -i data
+# Restore snapshot
+ETCDCTL_API=3 etcdctl snapshot restore --data-dir /var/lib/etcd-data-new /opt/cluster2.db --endpoints=https://127.0.0.1:2379  --cacert=/etc/kubernetes/pki/etcd/ca.crt --cert=/etc/kubernetes/pki/etcd/server.crt --key=/etc/kubernetes/pki/etcd/server.key
+
+A ETCD restore doesnt require connection with cacert/cert/keys
+ETCDCTL_API=3 etcdctl snapshot restore --data-dir /var/lib/etcd-data-new /opt/cluster2.db   #This is enough
+
+vim /etc/systemd/system/etcd.service
+set the data-dir to new folder
+
+etcd-server /opt ➜  systemctl daemon reload
+Unknown operation daemon.
+
+etcd-server /opt ✖ systemctl daemon-reload
+
+etcd-server /opt ➜  systemctl restart etcd
+
+etcd-server /opt ➜  systemctl status etcd
+
+k delete pod kube-controller-manager-cluster2-controlplane kube-scheduler-cluster2-controlplane -n kube-system
+
+ssh@cluster2-controlplane
+cluster2-controlplane ~ ➜  systemctl restart kubelet
+cluster2-controlplane ~ ➜  systemctl status kubelet
+
+In the exam, you won't know if what you did is correct or not as in the practice tests in this course. You must verify your work yourself. For example, if the question is to create a pod with a specific image, you must run the the kubectl describe pod command to verify the pod is created with the correct name and correct image.
+
+https://kubernetes.io/docs/tasks/administer-cluster/configure-upgrade-etcd/#backing-up-an-etcd-cluster
+https://github.com/etcd-io/website/blob/main/content/en/docs/v3.5/op-guide/recovery.md
+https://www.youtube.com/watch?v=qRPNuT080Hk
 
 
 
