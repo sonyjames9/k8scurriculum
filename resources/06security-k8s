@@ -68,6 +68,75 @@ Note:
 3. Setup Role Based Authorization for the new users
 
 TLS Basics ----
+Symmetric Encryption -- 
+Asymmetric Encryption -- 
+  1. private key  id_rsa
+  2. public lock  id_rsa.pub
+ 
+cat ~/.ssh/authorized_keys
+ssh -i id_rsa user1@server1
+
+CA certificates       Root certificates
+Server Certificates   (Cert)Public key    Private key
+Client Certificates   
+
+
+(Cert)Public key *.crt,*.pem ------
+server.crt
+server.pem
+client.crt
+client.pem
+
+Private key  *.key *-key.pem --------
+server.key
+server-key.pem
+client.key
+client-key.pem
+
+SERVER CERTIFICATES FOR SERVERS ---------
+KUBE-API-SERVER   apiserver.crt   apiserver.key
+ETCD-SERVER       etcdserver.crt  etcdserver.key
+KUBELET-SERVER    kubelet.crt     kubelet.key
+
+CLIENT CERTIFICATES FOR CLIENTS ---------
+KUBECTL(REST) ADMIN   admin.crt       admin.key
+KUBE-SCHEDULER        scheduler.crt   scheduler.key
+KUBE-CONTR-MANAGER    controller-manager.crt/key  
+KUBE-PROXY            kube-proxy.crt  kube-proxy.key
+
+kubectlt  --------> KUBE-API --->  ETCD SERVER
+kube-scheduler -->  SERVER   --->  KUBELET          
+kube-ctr-mgr    ------>                  
+kube-proxy      ------>     
+
+Generate certificates ---> EASYRSA/OPENSSL/CFSSL
+
+CA CERTIFICATES -----
+# Generate Keys
+> openssl genrsa -out ca.key 2048
+ca.key
+
+# Certificate Signing Request
+> openssl req -new -key ca.key -subj "/CN=KUBERNETES-CA" -out ca.csr
+ca.csr
+
+# Sign Certificates
+> openssl x509 -req -in ca.csr -signkey ca.key -out ca.crt
+
+CLIENT CERTIFICATES ---
+Admin user
+# Generate Keys
+> openssl genrsa -out admin.key 2048
+admin.key
+
+# Certificate Signing Request
+> openssl req -new -key admin.key -subj "/CN=kube-admin" -out admin.csr
+admin.csr
+
+# Sign Certificates
+> openssl x509 -req -in ca.csr -signkey ca.key -out admin.crt
+admin.crt
+
 
 
 
