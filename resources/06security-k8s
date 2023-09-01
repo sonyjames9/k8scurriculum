@@ -199,6 +199,88 @@ journalctl -u etcd.service -l
 
 k logs etcd-master
 
+/etc/kubernetes/manifests/etcd.yaml
+
+kubeapi server crt  ---> /etc/kubernetes/pki/apiserver.crt
+etcd server crt -----> /etc/kubernetes/pki/etcd/server.crt
+
+openssl x509 -in /etc/kubernetes/pki/apiserver.crt --text -noout
+openssl x509 -in /etc/kubernetes/pki/apiserver.crt --text -noout | grep -i DNS
+openssl x509 -in /etc/kubernetes/pki/etcd/server.crt --text -noout
+openssl x509 -in /etc/kubernetes/pki/etcd/server.crt --text -noout | grep -i CN
+openssl x509 -in /etc/kubernetes/pki/ca.crt --text -noout
+openssl x509 -in /etc/kubernetes/pki/ca.crt --text -noout | grep -i not
+
+--cert-file=/etc/kubernetes/pki/etcd/server-certificate.crt
+
+docker or crictl ----
+cricl ps -a
+cricl ps -a | grep -i api
+cat /etc/kubernetes/manifests/kube-apiserver.yaml | grep -i "-etcd"
+crictl logs container_id
+
+the ca cert of etcd was pointing to ca cert of k8s engine, changed 
+
+Manifests yaml files -------
+controlplane ~ ➜  ls -l /etc/kubernetes/manifeststotal 16
+-rw------- 1 root root 2399 Aug 31 20:15 etcd.yaml
+-rw------- 1 root root 3877 Aug 31 20:36 kube-apiserver.yaml
+-rw------- 1 root root 3393 Aug 31 19:35 kube-controller-manager.yaml
+-rw------- 1 root root 1463 Aug 31 19:35 kube-scheduler.yaml
+
+Certificates API ----
+
+  1. Create CertificateSigningRequest Object
+  2. Review Requests
+  3. Approve Requests
+  4. Share Certs to Users
+
+cat jane.csr | base64 | tr -d "\n"
+  1. Create CertificateSigningRequest Object
+     1. openssl genrsa -out jane.key 2048
+     2. openssl req -new -key jane.key -subj "/CN=jane" -out jane.csr
+     3. this key is used to create certificateSigningRequest
+apiVersion: v1
+kind: CertificateSigningRequest
+metadata:
+  name: jane
+spec:
+  groups:
+  - system: authenticated
+  usages:
+  - digital signature
+  - key encipherment
+  - server auth
+  request:
+      output of cat jane.csr | base64 | tr -d "\n"
+k get csr
+
+
+  2. Review Requests
+     1. k get csr
+  3. Approve Requests
+     1. k certificate approve jane
+  4. Share Certs to Users
+     1. k get csr jane -oyaml
+     2. here you have to decode the encoded certificate 
+     echo "encodedcert =" | base64 --decode
+
+controller-manager is responsible for all certificate operations
+1. CSR-APPROVING
+2. CSR-SIGNING
+
+If anyone has to sign certificates, they need the CA servers root certificate and private key. 
+The controller manager in /etc/kubernetes/manifests/kube-controller-manager.yaml has both in --cluster-signing-cert-file and --cluster-signing-key-file
+
+
+
+
+
+
+
+
+
+
 
 References ---------------------
 https://github.com/mmumshad
@@ -216,25 +298,6 @@ https://roadmap.sh/cyber-security
 https://github.com/kamranahmedse/developer-roadmap
 https://github.com/kamranahmedse/design-patterns-for-humans
 https://github.com/kamranahmedse/git-standup
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
 
 
