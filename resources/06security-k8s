@@ -255,6 +255,8 @@ spec:
       output of cat jane.csr | base64 | tr -d "\n"
 k get csr
 
+cat jane.csr | base64 -w 0
+
 
   2. Review Requests
      1. k get csr
@@ -273,6 +275,356 @@ If anyone has to sign certificates, they need the CA servers root certificate an
 The controller manager in /etc/kubernetes/manifests/kube-controller-manager.yaml has both in --cluster-signing-cert-file and --cluster-signing-key-file
 
 
+> cat jane.csr | base64 -w 0 # should be added in request
+
+apiVersion: certificates.k8s.io/v1
+kind: CertificateSigningRequest
+metadata:
+  name: akshay
+spec:
+  request: LS0tLS1CRUdJTiBDRVJUSUZJQ0FURSBSRVFVRVNULS0tLS0KTUlJQ1ZqQ0NBVDRDQVFBd0VURVBNQTBHQTFVRUF3d0dZV3R6YUdGNU1JSUJJakFOQmdrcWhraUc5dzBCQVFFRgpBQU9DQVE4QU1JSUJDZ0tDQVFFQXoybmdFR2JtOTJIeVZYdEIrSk1Ua0NkWEZndm9nU2FYVmN4NFhDQjY3blZ1Cm5RQmZ4N0I0VHEzWDB5d0p6ekZkV2RGejQxaW02T05ZTFlyL3RhQVNvTG1lYXpYTXVRUGpTZFdHTFZwaUJXZEsKdFJCUTZYV2h5NjYzRlJoYkdBdTFkdCs3Lzh5NE53a3JjSXFoUVdpVitnNzg1NDNtTXU4WE5MUjJXbmQzVVN1SgpQWU5GOEdDWDRFWVJMSDVFcy9aSG85dWFaTEgwZFVOLzZRUDVhM2UwdnExNytzOUtrL1ozU2JpbS9reEptR0dVCmcwbkJ3eW5iVGRVaFZyVDVjbmRjcmtyeE1yL3R1R3Q5aG5OcDJGVElpeisrZ0dUd1ZGVU5JZ0QzajVTbVkveWQKRmNtUUo1Qi9RU0xDVEVsWDdrNUhLY2dZaExWck51YWJHcnhrY2IyNFlRSURBUUFCb0FBd0RRWUpLb1pJaHZjTgpBUUVMQlFBRGdnRUJBQ2RWL3hyQ01rNnJDZmlDVDlrbkJHYUpJY0RuT09mOUlMZWV2aFo2ZC9WUVdLdWpPbks4CkhVWjNmbTQxV1daTTZiZXNQRFlpZTEzNCtkVkRRR1Q1MkVJY3RkVGJ2bUN4cVl0eVdoV3VLNUtHeVJNcDY4KzcKWFdvclJCdFpXZGwzZkFEcnFtWUFTNGxKazBUeGhnV3M1bkNCNWJ0WUtaeU5OaGk1bHYxcE5pa0xNU2ttcDJGNApubTdDVlFoVFROTm91azRQeURzYk9CdElvU2twL25xcG13M2prRUxHeG15Qkp3MmFvTWdiMU9nazJ3L05XWmd3CkxZajF3aG9nYm9kSVFjTG4wNTJ5YU0xTncvbGJqdWRtZVdKcGFETnRtTEcrRHRCYXRuS1Z6bW51NHRkdEFEKzQKRXhmYThsam1Qa05saElCbVdYUFprSENIZUtaUUlLSDA3aVk9Ci0tLS0tRU5EIENFUlRJRklDQVRFIFJFUVVFU1QtLS0tLQo=
+  signerName: kubernetes.io/kube-apiserver-client
+  usages:
+  - client auth
+
+cat jane.csr | base64 -w 0
+
+cat jane.csr | base64 -w 0
+
+Always check the group permissions like this for CSR
+spec:
+  groups:
+  - system:masters
+  - system:authenticated
+By default something like this should be denied
+
+  30  k get csr
+  31  k certificate approve akshay
+  32  k get csr
+  33  k view csr agent-smith
+  34  k get csr agent-smith -oyaml
+  35  k certificate reject agent-smith
+  36  k certificate deny agent-smith
+  37  k delete csr agent-smith
+
+
+KUBECONFIG ----------
+curl https://my-kube-playground:6443/api/v1/pods --key admin.key --cert admin.crt --cacert ca.crt
+
+k get pods --server my-kube-playground:6443 --client-key admin.key --client-certificate admin.crt --certtificate-authority ca.crt
+
+KubeConfig File
+--server my-kube-playground:6443
+--client-key admin.key 
+--client-certificate admin.crt 
+--certtificate-authority ca.crt
+
+kubectl looks for kubeconfig under users home dir
+$HOME/.kube/config
+- when you pass the server, client-key, client-cert, ca-auth in kube config in the home dir, you dont need to add these into the kubectl commands each time.
+These args are considered every time you pass a 
+ >kubectl get/create/replace pods/svc/deploy/etc command
+
+Kubeconfig has 3 sections
+1. Clusters   Dev/Prod/Google
+--server my-kube-playground:6443
+--certtificate-authority ca.crt
+
+2. Contexts   Context is the mapping of cluster and Users -- Admin@Prod, Dev@Google
+A context is used to connect tha above args with below users args
+
+3. Users      Admin/Dev/Prod - Different privileges to every user group
+--client-key admin.key 
+--client-certificate admin.crt 
+
+# Each of clusters, contexts and users are array format. 
+# Multiple clusters can be specified within the same file
+>>
+apiVersion: v1
+kind: Config
+current-context: user2@dev-env
+clusters:
+- name: cluster1
+  cluster:
+    certificate-authority: ca.crt
+    server: https://cluster1:6443
+-name: dev-env
+-name: prod-env
+-name: google-env
+
+contexts:
+- name: user1@cluster1
+  context:
+    cluster: cluster1
+    user: user1
+    namespace: monitoring/default/kube-system/minio
+- name: user2@prod-env
+- name: user3@dev-env
+
+users
+- name: user1
+  user:
+    client-key admin.key 
+    client-certificate admin.crt 
+- name: user2
+- name: user3
+
+
+>k config view
+>k config view --kebeconfig=nameOfConfig
+>k config use-context user1@prod-env
+>k config use-context user2@dev-env
+kubectl config use-context cluster1
+kubectl config use-context cluster2
+>k config -h
+> k config use-context research --kubeconfig=my-kube-config
+
+Namespaces can also be added in config view in context which when user switches to a context and provided a namespace is added in context, the user sends commands to the particular namespace
+
+Certificates in KubeConfig -----
+apiVersion: v1
+kind: Config
+current-context: user2@dev-env
+clusters:
+- name: cluster1
+  cluster:
+    certificate-authority: ca.crt
+
+##
+1. Its always better to use full path wherever .crt is mentioned in kubeconfig
+2. Instead of the crt, crt data can be used, convert the contents on crt to base64 encoded format and use the same in data field
+> cat ca.crt | base64
+
+apiVersion: v1
+kind: Config
+current-context: user2@dev-env
+clusters:
+- name: cluster1
+  cluster:
+    certificate-authority-data: encoded-crt
+
+3. Similarly if you see file in encoded format, use the base64 decode option to decode cert
+> echo "EncodedFormat" | base64 --decode
+
+*****
+Always check the names of different objects, crt, smaller naming convetion; they matter a lot.
+*****
+
+
+API Groups 
+--------------
+
+K8s version via API
+curl https://kube-master:6443/version
+
+Get pods
+curl https://kube-master:6443/api/v1/pods
+
+List groups
+curl https://kube-master:6443 -k \
+--key admin.key \
+--cert admin.crt \
+--cacert ca.crt
+
+Kubectl proxy ----
+User --> Kubectl proxy --> Kube Apiserver
+curl http://localhost:8001 -k
+# Here you dont need to specify the above certs
+kube proxy != kubectl proxy ***
+
+Named groups
+curl https://kube-master:6443/apis -k | grep "name"
+
+/metrics
+/heathz
+/version
+/api      CORE
+/apis     NAMED
+/logs
+
+
+/api      CORE
+V1
+ns          pods        rc
+events      endpoints   nodes
+bindings    PV          PVC
+configmaps  secrets     services
+
+
+/apis     NAMED
+/apps     extension   /networking.k8s.io    /storage.k8s    /authentication.k8s.io    /certificates.k8s.io   --- API Groups
+
+apps/v1   -- Resources
+deployments
+rs
+statefulsets
+--
+list/get/create/delete/update/watch   -- VERBS
+
+/networking.k8s.io/v1
+nwpolicies
+
+certificates.k8s.io/v1
+certificatesigningrequests
+
+
+Authorization ----
+The access is shared across cluster and we dont need to provide access to all namespaces to a particular dev/team, we provide access only to a namespace of that user/team
+
+Admins      -   Complete access
+Developers  -   Reduced access than admins
+Bots        -   Minimal access for only the desired action
+
+Authorization Mechanisms --
+
+AlwaysAllow | Node | ABAC | RBAC | Webhook | AlwaysDeny
+
+Node -
+kubelet --- acts as api server to read/write info about below
+kubelet also reports to Kube API server
+
+Read        Write
+Services    Node Status
+Endpoints   Pod Status
+nodes       Events
+pods
+
+These requests are handled by Node authorizer, kubelet should be part of systems node group and have a name prefixed with system node.
+So any request coming from a user with name of system node and part of the systems nodes group si authorized by the node authorizer and are granted these privileges.
+
+
+ABAC - Attribute based access control configuration
+Associate a user or group of users with a set of permissions, like dev user can view/create/delete pods.
+Everytime we need to add user/groups, a json policy definition file is creted with access to resources, namespaces and the list of action in api groups is listed has to be done manually. When we make changes we need to add them to Security group(view/approve CSR).
+ Then restart Kube API Server.
+The ABAC are difficult to manage.
+
+RBAC - Role based access control
+Create role based access to dev/groups, perform same for security group(view/approve CSR)
+Associate a user to the role, whenever a change is made to the user's access, we modify the role and it reflects on all developers immediately.
+RBAC gives a more standard approach to managing access with k8s cluster.
+
+Webhook - If you want to manage the authorization externally and not thru the built in mechanisms. Open Policy Agent which helps with admission control and authorization. You can have k8s make an API call to the Open Policy Agent with the information about the user and his access requirements and let agent decide if the user should be permitted or not. Based on that user is granted access.
+
+AlwaysAllow - allows without any authorization checks
+
+AlwaysDeny - denies all requests
+
+In kube-apiserver service, authorization-mode if not mentioned, then by default its "AlwaysAllow"
+
+--authorization-mode=AlwaysAllow
+--authorization-mode=Node,RBAC,Webhook
+
+UserAuthorization -> NODE -> RBAC -> WEBHOOK
+ -  Authorization is applied in the order it is specified, like a chain, if one authorization fails, then user is authorized against next mode and once user is authorized no more checks are done and user is granted permission.
+ -  Node Authorizer only handles Node requests, so it denies the request. Whenever a module denies a request, it is forwarded to the next one in chain.
+ -  The RBAC module performs its checks and grants permissions, Authorization is complete and user is given access to the requested object.
+
+
+RBAC -- 
+Create a Role Definition file 
+
+developer.yaml
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: developer
+rules:
+- apiGroup: [""]
+  resources: ["pods"]
+  verbs: ["list", "get", "create", ""]- apiGroup: [""]
+  resources: ["ConfigMap"]
+  verbs: ["create"]
+
+kubectl create -f developer.yaml
+
+apiGroup    CoreGroup or other groups as desired
+resources   Access to which resources in k8s
+verbs       Actions
+
+Multiple roles can be created for a developer/qa/admin
+
+Create Role Binding object, links a user object to a role
+devuser-developer-binding.yaml
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: devuser-developer-binding
+subjects:
+- kind: User
+  name: dev-user
+  apiGroup: rbac.authorization.k8s.io
+roleRef:
+  kind: Role
+  name: developer
+  apiGroup: rbac.authorization.k8s.io
+
+
+subjects: User details
+roleRef: Is where we provide the role details
+
+k create -f devuser-developer-binding.yaml
+The roles and role bindings fall under the scope of name spaces.
+
+> k get roles
+> k get rolebindings
+> k describe rolebinding devuser-developer-binding
+> k describe role developer -- here you see the details about the resources and permissions for each resource
+
+> k auth can-i create deployments
+yes
+> k auth can-i delete nodes
+no
+> k auth can-i create deployments --as dev-user
+no
+> k auth can-i create pods --as dev-user
+yes
+> k auth can-i create deployments --as dev-user --namespace test
+no
+controlplane ~ ✖ k auth can-i list pods  --as dev-user
+no
+
+developer.yaml
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: developer
+rules:
+- apiGroup: [""]
+  resources: ["pods"]
+  verbs: ["list", "get", "create", "update"]
+  resourceNames: ["blue", "orange"]
+
+k get roles -A --no-headers
+k get roles -A --no-headers | wc -l
+k get roles -A --no-headers | grep proxy
+controlplane ~ ➜  k describe role kube-proxy -n kube-system
+Name:         kube-proxy
+Labels:       <none>
+Annotations:  <none>
+PolicyRule:
+  Resources   Non-Resource URLs  Resource Names  Verbs
+  ---------   -----------------  --------------  -----
+  configmaps  []                 [kube-proxy]    [get]
+
+controlplane ~ ➜  k get rolebindings -A | grep proxy
+kube-system   kube-proxy                                          Role/kube-proxy                                       17m
+
+controlplane ~ ➜  k describe rolebinding kube-proxy -n kube-system
+Name:         kube-proxy
+Labels:       <none>
+Annotations:  <none>
+Role:
+  Kind:  Role
+  Name:  kube-proxy
+Subjects:
+  Kind   Name                                             Namespace
+  ----   ----                                             ---------
+  Group  system:bootstrappers:kubeadm:default-node-token 
+
+k create role developer --verb=list,create,delete --resource=pods
+
+k create rolebinding dev-user-binding --role=developer --user=dev-user
 
 
 
@@ -282,22 +634,16 @@ The controller manager in /etc/kubernetes/manifests/kube-controller-manager.yaml
 
 
 
-References ---------------------
-https://github.com/mmumshad
-https://github.com/mmumshad/kubernetes-the-hard-way/tree/master/tools
-https://github.com/mmumshad/kubernetes-training-answers/tree/master
-https://github.com/mmumshad/developer-roadmap
-https://github.com/mmumshad/simple-webapp-flask
-https://roadmap.sh/
-https://roadmap.sh/typescript
-https://roadmap.sh/python
-https://roadmap.sh/nodejs
-https://roadmap.sh/devops
-https://roadmap.sh/golang
-https://roadmap.sh/cyber-security
-https://github.com/kamranahmedse/developer-roadmap
-https://github.com/kamranahmedse/design-patterns-for-humans
-https://github.com/kamranahmedse/git-standup
+
+
+
+
+
+
+
+
+
+
 
 
 
@@ -358,33 +704,6 @@ openssl x509 -req -in apiserver-etcd-client.csr -CA ca.crt -CAkey ca.key -CAcrea
 "openssl", "x509", "-req", "-in", "/etc/kubernetes/pki/apiserver-etcd-client.csr", "-CA", "/etc/kubernetes/pki/etcd/ca.crt", "-CAkey", "/etc/kubernetes/pki/etcd/ca.key", "-CAcreateserial", "-out", "/etc/kubernetes/pki/apiserver-etcd-client.crt"
 openssl x509 -req -in /etc/kubernetes/pki/apiserver-etcd-client.csr -CA /etc/kubernetes/pki/etcd/ca.crt -CAkey /etc/kubernetes/pki/etcd/ca.key -CAcreateserial -out /etc/kubernetes/pki/apiserver-etcd-client.crt -days 100
  openssl x509 -req -in apiserver.csr -CA ca.crt -CAkey ca.key -CAcreateserial -out apiserver.crts
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
 
 SECURITY IN K8S END
