@@ -681,14 +681,324 @@ rules:
   - deployments
   verbs:
   - create
-  - 
+ 
 k --as dev-user create deployment nginx --image=nginx -n blue
 > deployment.apps/ngonx created
 
+Cluster roles --------
+Roles/Rolebindings are namespaces, if namespace is not mentioned in yaml then the resource is created in default ns.
+
+Resources are categorized as namepaced or cluster scoped
+
+Namespaced resources ------
+pods, rs, jobs, deployments, services, secrets, roles, rolebindings, configmaps,PVC
+
+Cluster scope resources ------
+nodes, PV, clusterroles, clusterrolebindings, certificatesigningrequests, namespaces
+
+k api-resources --namespaced=true
+k api-resources --namespaced=false
+
+Cluster Admin
+view/create/delete nodes
+
+Storage Admin
+view/create PVs delete PVCs
+
+cluster-admin-role.yaml ----
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: cluster-admin
+rules:
+- apiGroup: [""]
+  resources: ["nodes"]
+  verbs: ["list", "get", "create", "delete"]
+
+k create -f cluster-admin-role.yaml
+
+Link user to that cluster role
+cluster-admin-role-binding.yaml ----
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: cluster-admin-rbinding
+subjects:
+- kind: User
+  name: cluster-admin
+  apiGroup: rbac.authorization.k8s.io/v1
+roleRef:
+  kind: ClusterRole
+  name: cluster-admin
+  apiGroup: rbac.authorization.k8s.io/v1
+
+k create -f cluster-admin-rbinding.yaml
+
+You can create a cluster role for namespaced resources as well, here user will have access to resources across all namespaces
+
+
+controlplane ~ ➜  k get clusterrolebindings --no-headers | wc -l
+55
+
+controlplane ~ ➜  k get clusterroles --no-headers | grep cluster-admin
+cluster-admin       
+
+controlplane ~ ➜  k edit clusterrolebindings cluster-admin
+
+controlplane ~ ➜  k get clusterrolebindings --no-headers | grep cluster-admin
+
+controlplane ~ ➜  k edit clusterrolebindings cluster-admin
+
+controlplane ~ ➜  k edit clusterrole cluster-admin
+
+k create clusterrole michelle --verb='*' --resource=nodes
+
+k create clusterrolebinding michelle --clusterrole=cluster-admin --user=michelle --group system:masters
+
+controlplane ~ ✖ k create clusterrole storage-admin --resource=storageclasses,persistentvolumes --verb=list,create,get,watch
+clusterrole.rbac.authorization.k8s.io/storage-admin created
+
+controlplane ~ ✖ k create clusterrolebinding michelle-storage-admin --user=michelle --clusterrole=storage-admin
+clusterrolebinding.rbac.authorization.k8s.io/michelle-storage-admin create
+
+k get clusterrole storage-admin -oyaml
+k --as michelle get storageclass
+
+
+Service Accounts --------
+
+User Account
+Admin/Dev
+
+Service Account
+Prometheus/Jenkins/
+
+k create serviceaccount dashboard-sa
+k get serviceaccount
+k describe serviceaccount dashboard-sa
+
+While SA is created, a token is created and this token is used by external app while authenticating to k8s api.
+The token is stored as a secret object, in this case its named "dashboard-sa-token=kbbdm"
+When a SA is created, it first creates the service account object and then generates a token for the SA.
+It then creates a secret object and stores that token inside the secret object.
+The secret object is then linked to the SA.
+To view the token, view the secret object
+> k describe secret dashboard-sa-token-kbbdm
+
+This token can be used as a authentication bearer token while making a REST call to the k8s API
+
+curl https://IP:6443/api -insecure --header "Authorization: Bearer secret-token"
+
+Create SA - user permission based RBAC - export your SA tokens - use it to configure 3 party app to authenticate to k8s API
+
+3rd part app hosted on k8s cluster -- we can have our custom k8s dashboard app(eg: Prometheus app) deployed on the k8s cluster itself - automatically mount the SA token secret as a volume inside the pod hosting the 3rd part app
+
+Token to access the k8s API is already placed inside the pod and can be easily read by the app.
+
+k get SA
+default
+dashboard-sa
+
+The default SA exists in each namespace.
+Whenever a pod is created, the default SA and its token are automatically mounted to that pod as a volume mount.
+
+When you describe a pod, you see that a volume is automatically created fromt the secret named default token, this secret contains token for default SA.
+The secret token is mounted at location /var/run/secrets/kubernetes.io/serviceaccount inside the pod.
+
+k exec -it my-k8s-dashboard --ls /var/run/secrets/kubernetes.io/serviceaccount
+If you ls the pod at this location you should find the secret mounted as 3 separate files
+1)ca.crt  2)namespace   3)token
+The file named token is the SA token
+
+k exec -it my-k8s-dashboard cat /var/run/secrets/kubernetes.io/serviceaccount
+The token will be displayed
+
+** The default SA is very restricted, it has permissions to run basic Kubernetes API queries
+
+apiVersion: v1 
+kind: Pod 
+metadata:
+  name: my-k8s-dash
+spec:
+  containers:
+  - name: my-k8s-dash
+    image: my-k8s-dash
+    ports:
+      - containerPort: 8080
+  serviceAccoutnName: dashboard-sa
+
+You cannot edit the SA of existing pod, you must delete and recreate the pod.
+
+- In case of deployment, you will be able to edit the SA as any change to pod def file will automatically trigger a new rollout for the deployment.
+- Deployment will deletre and recreate new pods with new SA
+- When you describe pod, you will see the new service account is being used
+- k8s automatically mounts the default SA if you havent specified any
+- you can choose not to mount a SA automatically by setting the automountServiceAccountToken field as false
+automountServiceAccountToken: false
+
+ JWT.io --decode token on website or use the command line to decode
+
+> jq -R 'split(".") | select(length > 0) | .[0],.[1] | @base64d | fromjson' <<< encoded-token
+> Token may not have expiry date set
+> JWT is valid as long as SA exists
+> each JWT requires a separate object per service account which results in scalability issues
+> JWTs are not audience bound 
+
+> Tokens generated by TokenRequestAPI are audience bound
+> Time bound
+> Object bound
+and hence are more secure
+
+Service Account (SA)
+--------------------------------
+
+SA - Authentication, Authorization, RBAC, etc
+
+User account    --> User/Admin/Developer
+Service Account --> Prometheus uses SA to poll k8s api for performance metrics/ Jenkins uses SA to deploy apps on k8s cluster
+
+> k create serviceaccount dashboard-sa
+> k get sa
+> k describe sa dashboard-sa
+> k describe secret dashboard-sa-token-xxxx
+
+curl https://192.168.56.70:6443/api -insecure --header "Authorization: Bearer token"
+
+Create SA -> Assign right permissions using RBAC -> export the SA token -> Use it to configure 3rd party app
+
+If the app is in your cluster, then you can mount the sa token secret as volume in pod hosting 3rd part app
+
+> k get sa # for every namespace, there is a default service account
+> default
+> dashboard-sa
+
+Whenever a pod is created, default sa and token is mounted as volume mount
+
+#pod-def.yml
+apiVersion: v1 
+kind: Pod 
+metadata:
+  name: simple-webapp-color
+spec:
+  containers:
+  - name: simple-webapp-color
+    image: simple-webapp-color
+
+> k describe pod simple-webapp-color
+Observe the default token in volume, the secret token in mounted at location /var/run/secrets/kubernetes.io/serviceaccount
+
+> k exec -it simple-webapp-color --ls /var/run/secrets/kubernetes.io/serviceaccount
+ca.crt  namespace   token
+
+> k exec -it simple-webapp-color cat /var/run/secrets/kubernetes.io/serviceaccount
+tokenIsListed
+
+-- Default SA is very restricted, it only has permission to run basic k8s api queries
+-- if you want to use the newly created SA, then modify the pod definition and add SA
+#pod-def.yml
+apiVersion: v1 
+kind: Pod 
+metadata:
+  name: simple-webapp-color
+spec:
+  containers:
+  - name: simple-webapp-color
+    image: simple-webapp-color
+  serviceAccountName: dashboard-sa ###*****
+  automountAccountToken: false ### Set this to false
+
+You cannot edit the SA of existing pod, you must delete and recreate the pod.
+In case of deployment you will be able to edit the SA, any changes in pod-def will create a new rollout for new deployment
+
+k8s automatically mounts SA if you have not specified any
+
+Decode token
+> jq -R 'split(".") | select(length > 0) | .[0],.[1] | @base64d | fromjson' <<< encoded-token
+JWT.IO
+The Jwt is valid as there is no expiry, the token request API was enabled, to provision more secure token. So the Token generated by TokenRequestAPI are:
+1. Audience Bound
+2. Time Bound
+3. Object Bound
+
+From v1.22, tokens created for a pod has expiry, token is created via TokenRquestAPI by SA at mission controller when a pod is created
+#pod-def.yml
+apiVersion: v1 
+kind: Pod 
+metadata:
+  name: simple-webapp-color
+spec:
+  containers:
+  - name: simple-webapp-color
+    image: simple-webapp-color
+    volumeMounts:
+    - mountPath: /var/run/secrets/kubernetes.io/serviceaccount
+      name: kube-api-access-xxxx
+  volumes:
+  - name: kube-api-access-xxxx
+    projected:
+      defaultMode:420
+      sources:
+      - serviceAccountToken:
+          expirationSeconds: 3607
+          path: token
+
+> k create sa dashboard-sa
+Created SA -> Secret -> Token
+
+v1.24: Automatic mounting of secret object was changed unlike in v1.22
+> k create sa dashboard-sa
+Created SA
+> k create token dashboard-sa
+Token
+
+The newly created JWT token has default expiry of an hour, this expiry can be increased.
+
+If you still like to create secrets like prior to v1.22
+you can do it with non expiry token
+The name of the service account should be mentioned in the annotations section like below
+Ensure to create a service account first and then follow below def.yml *****
+
+apiVersion: v1
+kind: Secret
+type: kubernetes.io/service-account-token
+metadata:
+  name: mysecret
+  annotations:
+    kubernetes.io/service-account.name: dashboard-sa
+
+https://kubernetes.io/docs/concepts/configuration/secret/?_hsenc=p2ANqtz-8QIKqQ81K2BpasZ6pa9U6KVLlQVKjSavXNH63yUvl0p3RL-ZWakTxtF1sa3rnK7fRHZPKK#service-account-token-secrets
+Note:
+Versions of Kubernetes before v1.22 automatically created credentials for accessing the Kubernetes API. This older mechanism was based on creating token Secrets that could then be mounted into running Pods. In more recent versions, including Kubernetes v1.28, API credentials are obtained directly by using the TokenRequest API, and are mounted into Pods using a projected volume. The tokens obtained using this method have bounded lifetimes, and are automatically invalidated when the Pod they are mounted into is deleted.
+
+You can still manually create a service account token Secret; for example, if you need a token that never expires. However, using the TokenRequest subresource to obtain a token to access the API is recommended instead. You can use the kubectl create token command to obtain a token from the TokenRequest API.
+
+READS
+https://github.com/kubernetes/enhancements/blob/master/keps/sig-auth/1205-bound-service-account-tokens/README.md
+https://github.com/kubernetes/enhancements/issues/2799
+https://github.com/kubernetes/enhancements/tree/master/keps/sig-auth/2799-reduction-of-secret-based-service-account-token
+
+https://kubernetes.io/docs/reference/access-authn-authz/service-accounts-admin/
+https://github.com/kubernetes/enhancements/tree/master
+
+https://kubernetes.io/docs/tasks/administer-cluster/certificates/
+https://kubernetes.io/docs/concepts/configuration/secret/
 
 
 
-
+controlplane ~ ✦ ➜  cat /var/rbac/dashboard-sa-role-binding.yaml ---
+kind: RoleBinding
+apiVersion: rbac.authorization.k8s.io/v1
+metadata:
+  name: read-pods
+  namespace: default
+subjects:
+- kind: ServiceAccount
+  name: dashboard-sa # Name is case sensitive
+  namespace: default
+roleRef:
+  kind: Role #this must be Role or ClusterRole
+  name: pod-reader # this must match the name of the Role or ClusterRole you wish to bind to
+  apiGroup: rbac.authorization.k8s.io
 
 
 
@@ -762,7 +1072,10 @@ openssl x509 -req -in /etc/kubernetes/pki/apiserver-etcd-client.csr -CA /etc/kub
 SECURITY IN K8S END
 ------------------------------------
 
-
+NEW_chap IN K8S START
+------------------------------------
+NEW_chap IN K8S END
+------------------------------------
 
 
 Cluster Maintenance 
@@ -2171,5 +2484,5 @@ Advance Scheduling in K8s ------
 https://kubernetes.io/blog/2017/03/advanced-scheduling-in-kubernetes/
 
 How does Kubernetes' scheduler work?
-https://jvns.ca/blog/2017/07/27/how-does-the-kubernetes-scheduler-work/
 https://stackoverflow.com/questions/28857993/how-does-kubernetes-scheduler-work
+https://jvns.ca/blog/2017/07/27/how-does-the-kubernetes-scheduler-work/
