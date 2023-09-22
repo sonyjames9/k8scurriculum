@@ -982,8 +982,7 @@ https://github.com/kubernetes/enhancements/tree/master
 
 https://kubernetes.io/docs/tasks/administer-cluster/certificates/
 https://kubernetes.io/docs/concepts/configuration/secret/
-
-
+s
 
 controlplane ~ ✦ ➜  cat /var/rbac/dashboard-sa-role-binding.yaml ---
 kind: RoleBinding
