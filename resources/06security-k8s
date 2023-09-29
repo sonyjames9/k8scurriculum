@@ -1000,25 +1000,279 @@ roleRef:
   apiGroup: rbac.authorization.k8s.io
 
 
+Image Security ---------------
+
+docker.io/library/nginx
+gcr.io/kubernetes-e2e-test-images/dnsutils
 
 
+docker login private-registry.io
+docker run private-registry.io/apps/internal-app
+
+> k create secret docker-registry regcrd \
+ -- docker-server=private-registry.io \         
+ -- docker-username=registry-user \         
+ -- docker-password=registry-password \         
+ -- docker-email=reg-user@abc.com
+
+#pod-def.yml
+apiVersion: v1 
+kind: Pod 
+metadata:
+  name: nginx-pod
+spec:
+  containers:
+  - name: nginx
+    image: private-registry.io/apps/internal-app
+  imagePullSecrets:
+  - name: regcred
+
+>k create secret docker-registry private-reg-cred --docker-server=myprivateregistry.com:5000 --docker-username=dock_user --docker-password=dock_password --docker-email=dock_user@myprivateregistry.com
+
+Docker Security ---------
+> docker run ubuntu sleep 3600
+> docker run --user=1000 ubuntu sleep 3600
+
+containers and host share same kernet
+
+A root user on Linux has complete access
+/user/include/linux/capability.h
+
+A docker container cannot be given same access, hence the user should be given access only to run the desired app in image
+
+> docker run --cap-add MAC_ADMIN ubuntu sleep 3600
+> docker run --cap-drop KILL ubuntu sleep 3600
+> docker run --privileged ubuntu sleep 3600
 
 
+Security Contexts -----
+Containers are encapsulated in pods, you can choose to configure the security settings at container level or pod level.
+Ths settings will then apply to all containers in pod
+if settings are set in both pod and contianer, then the settings on container will override the pod
+
+apiVersion: v1 
+kind: Pod 
+metadata:
+  name: nginx-pod
+spec:
+  #POD LEVEL
+  securityContext:
+    runAsUser: 1000
+  containers:
+  - name: nginx
+    image: nginx
+    #CONTIANER LEVEL
+    securityContext:
+      runAsUser: 1000
+      capabilities:
+        add: ["MAC_ADMIN"]
 
 
+Network Policies ---------
+Traffic
+Ingress and Egress
+
+policy-def.yaml -----
+apiVersion: networking.k8s.io/v1 
+kind: NetworkPolicy 
+metadata:
+  name: db-policy
+spec:
+  podSelector:
+    matchLabels:
+      role: db
+  policyTypes:
+  - Ingress 
+  ingress:
+  - from
+    - podSelector:
+        matchLabels:
+          name: api-pod
+    ports:
+    - protocol: TCP
+      port: 3306
+
+k create -f policy-def.yaml
+
+For any ingress and egress traffic, you have to mention them in policyTypes, unless its mentioned the traffic will be open
+  policyTypes:
+  - Ingress 
+  - Egress 
+
+Network products supporting Netpol
+kube-router
+calico
+romana
+weave-net
+
+Network products not supporting Netpol
+Flannel
+
+db-netpol-def.yaml -----
+apiVersion: networking.k8s.io/v1 
+kind: NetworkPolicy 
+metadata:
+  name: db-policy
+spec:
+  podSelector:
+    matchLabels:
+      role: db
+  policyTypes:
+  - Ingress 
+  ingress:
+  - from:
+    - podSelector:
+        matchLabels:
+          name: api-pod
+    ports:
+    - protocol: TCP
+      port: 3306
+
+#Ingress --
+apiVersion: networking.k8s.io/v1 
+kind: NetworkPolicy 
+metadata:
+  name: db-policy
+spec:
+  podSelector:
+    matchLabels:
+      role: db
+  policyTypes:
+  - Ingress 
+  ingress:
+  - from
+    #AND
+    - podSelector:
+        matchLabels:
+          name: api-pod
+      namespaceSelector:
+        matchLabels:
+          name: prod
+    #OR
+    - ipBlock:
+        cidr: 192.168.5.10/32
+    ports:
+    - protocol: TCP
+      port: 3306
 
 
+apiVersion: networking.k8s.io/v1 
+kind: NetworkPolicy 
+metadata:
+  name: db-policy
+spec:
+  podSelector:
+    matchLabels:
+      role: db
+  policyTypes:
+  - Egress 
+  egress:
+  - from:
+    #AND
+    - podSelector:
+        matchLabels:
+          name: api-pod
+      namespaceSelector:
+        matchLabels:
+          name: prod
+      #OR
+    - ipBlock:
+        cidr: 192.168.5.10/32
+  egress:
+  - to:
+    - ipBlock:
+        cidr: 192.168.6.10/32
+    ports:
+    - protocol: TCP
+      port: 80
 
 
+https://github.com/ahmetb/kubectx
+What are kubectx and kubens?
+kubectx is a tool to switch between contexts (clusters) on kubectl faster.
+kubens is a tool to switch between Kubernetes namespaces (and configure them for kubectl) easily.
 
+Kubectx:
 
+With this tool, you don't have to make use of lengthy “kubectl config” commands to switch between contexts. This tool is particularly useful to switch context between clusters in a multi-cluster environment.
 
+Installation:
+sudo git clone https://github.com/ahmetb/kubectx /opt/kubectx
+sudo ln -s /opt/kubectx/kubectx /usr/local/bin/kubectx
 
+Syntax:
+To list all contexts:
+kubectx
 
+To switch to a new context:
+kubectx <context_name>
 
+To switch back to previous context:
+kubectx -
 
+To see current context:
+kubectx -c
 
+Kubens:
+This tool allows users to switch between namespaces quickly with a simple command.
 
+Installation:
+sudo git clone https://github.com/ahmetb/kubectx /opt/kubectx
+sudo ln -s /opt/kubectx/kubens /usr/local/bin/kubens
+
+Syntax:
+To switch to a new namespace:
+kubens <new_namespace>
+
+To switch back to previous namespace:
+kubens -
+
+#sample-netpol.yaml
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: internal-policy
+spec:
+  podSelector:
+    matchLabels:
+      name: internal
+  policyTypes:
+    - Egress
+  egress:
+    - to:
+        - podSelector:
+            matchLabels:
+              name: payroll
+      ports:
+        - protocol: TCP
+          port: 8080
+
+    - to:
+        - podSelector:
+            matchLabels:
+              name: mysql
+      ports:
+        - protocol: TCP
+          port: 3306
+
+controlplane ~ ➜  k describe netpol internal-policy
+Name:         internal-policy
+Namespace:    default
+Created on:   2023-09-29 00:52:33 -0400 EDT
+Labels:       <none>
+Annotations:  <none>
+Spec:
+  PodSelector:     name=internal
+  Not affecting ingress traffic
+  Allowing egress traffic:
+    To Port: 8080/TCP
+    To:
+      PodSelector: name=payroll
+    ----------
+    To Port: 3306/TCP
+    To:
+      PodSelector: name=mysql
+  Policy Types: Egress
 
 kube-apiserver
 - --authorization-mode=Node,RBAC
