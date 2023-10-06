@@ -2,6 +2,11 @@
 NETWORKING IN K8S START
 ------------------------------------
 
+Switching - Switch can be used to communicate between 2 computers
+
+ip link
+ip addr add 192.168.1.10/24 dev eth0
+ip addr add 192.168.1.11/24 dev eth0
 
 
 
