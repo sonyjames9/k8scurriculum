@@ -4,12 +4,38 @@ NETWORKING IN K8S START
 
 Switching - Switch can be used to communicate between 2 computers
 
-ip link
-ip addr add 192.168.1.10/24 dev eth0
-ip addr add 192.168.1.11/24 dev eth0
+> ip link
+#Set IP to interfaces
+> ip addr add 192.168.1.10/24 dev eth0
+> ip addr add 192.168.1.11/24 dev eth0
 
+# Used to add entries into routing table
+Router helps 2 networks connect
+> ip route add 192.168.2.0/24 via 192.168.1.1
+> route
+Dest          Gateway     
+192.168.2.0   192.168.1.1
+> ip route add 192.168.1.0/24 via 192.168.2.1
+> route
+Dest          Gateway     
+192.168.1.0   192.168.2.1ð
+> ip route add default via 192.168.2.1
+> route
+Dest          Gateway
+default      192.168.2.1
+0.0.0.0      192.168.2.1
 
+# Command to check ip forwarding enabled on a host ot not
+> cat /proc/sys/net/ipv4/ip_forward
+0
+> echo 1 >  /proc/sys/net/ipv4/ip_forward
+1
+/etc/sysctl.conf
+net.ipv4.ip_forward=1
 
+/etc/network/interfaces
+
+you will be able to ping to network which is another network
 
 
 
