@@ -37,6 +37,7 @@ net.ipv4.ip_forward=1
 
 you will be able to ping to network which is another network
 
+DNS -------
 
 
 
