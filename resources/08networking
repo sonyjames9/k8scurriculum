@@ -77,6 +77,133 @@ nslookup is only for web apps lookups not the one hosted on local /etc/hosts fil
 dig www.google.com
 detailed dns resolution as is stored in DNS server
 
+https://github.com/kubernetes/dns/blob/master/docs/specification.md
+https://coredns.io/plugins/kubernetes/
+
+https://github.com/status-im/
+
+ 
+Network Namespaces -------
+Host has its Routing/ARP table
+Container will its own Routing/ARP table
+
+the container is now allowed to communicate with host processes or network
+
+Create network -----
+> ip netns add red
+
+list nw interfaces -
+> ip netns
+
+List nw in hosts:
+> ip link
+1: lo
+2: eth0
+
+list nw in nw namespace
+> ip netns exec red ip link
+> ip -n red ip link
+1: lo
+
+you cannot see the eth0 interface on the host
+
+check ARP  in hosts:
+> arp
+
+list ARP nw namespace
+> ip netns exec red arp
+
+check ROUTE  in hosts:
+> route
+
+list ARP nw namespace
+> ip netns exec red route
+
+establish connectivity between nw namespaces
+> ip link add veth-red type veth peer name veth-blue
+attach nw to their resp interfaces
+> ip link set veth-red netns red
+> ip link set veth-blue netns blue
+assign ip addr
+> ip -n red addr add 192.168.15.1 dev veth-red
+> ip -n blue addr add 192.168.15.2 dev veth-blue
+bring up the interface  
+> ip -n red link set veth-red up 
+> ip -n blue link set veth-blue up 
+ping the blue interface from red
+> ip netns exec red ping 192.168.15.2
+the nw will recognize the neighbour with mac address
+> ip netns exec red arp
+> ip netns exec blue arp
+
+The host will have no idea about this nw/nw interfaces setup created by both nw interfaces in container
+
+-- If you need to create multiple nw namespaces/interfaces, you will need a virtual switch. We can use
+1. LinuxBridge
+2. OpenvSwitch
+
+> ip link add v-net-0 type bridge
+This will be shown in ip link in host terminal
+Its a interface for the host and switch for namespaces
+
+Turn up the virtual switch 
+> ip link set dev v-net-0 up
+
+Delete a nw interface
+> ip -n red link del veth-red
+
+Create new cables to bridge
+> ip link add veth-red type veth peer name veth-red-br
+> ip link add veth-blue type veth peer name veth-blue-br
+
+connect both nw
+> ip link set veth-red netns red
+> ip link set veth-red-br master v-net-0
+> ip link set veth-blue netns blue
+> ip link set veth-blue-br master v-net-0
+assign ip addr
+> ip -n red addr add 192.168.15.1 dev veth-red
+> ip -n blue addr add 192.168.15.2 dev veth-blue
+bring up the interface  
+> ip -n red link set veth-red up 
+> ip -n blue link set veth-blue up 
+
+Assign IP addr to the virtual net used in the namespaces
+> ip addr add 192.168.15.5/24 dev v-net-0
+After setting a IP to v-net-0, the host can ping the network namespaces
+This entire nw namespace is private and restricted from the host.
+
+- From the nw namespaces you cant reach the outside world.
+- Nor can anyone reach from outside world to svc/apps in the host
+
+- If the namespaces want to reach the outside world, an entry needs to be added into routing table to provide a gateway to outside door
+The localhost is the gateway that connects 2 hosts(the internal namespaces and LAN) together
+
+> ip netns exec blue ip route add 192.168.1.0/24 via 192.168.15.5
+You will need to add NAT functionality to host, this will act as gateway, now it can send msgs to LAn in its own name with its own address
+
+> iptables -t nat -A POSTROUTING -s 192.168.15.0/24 -j MASQUERADE
+Now you can ping outside nw from internal namespaces
+> ip netns exec blue ping 192.168.1.3
+> ip netns exec blue route
+> ip netns exec blue ip route add default via 192.168.15.5
+> ip netns exec blue ping 8.8.8.8
+
+#Communicate from exernal nw to internal
+- It is blocked.
+There are 2 solutions:
+  1. Give awaty the identity of pvt nw to second host -- Add ip route entry to second host, mentioning the internal nw 192.163.15.x can be reached 198.168.1.2
+  2. Add a port forwarding role using IP tables mentioning any traffic coming to port 80 on localhost is to be forwarded to port 80 of blue namespace
+  > iptables -t nat -A PREROUTING --dport 80 --to-destination 192.168.15.2:80 -j DNAT
+
+While testing the Network Namespaces, if you come across issues where you can't ping one namespace from the other, make sure you set the NETMASK while setting IP Address. ie: 192.168.1.10/24
+> ip -n red addr add 192.168.1.10/24 dev veth-red
+
+Another thing to check is FirewallD/IP Table rules. Either add rules to IP Tables to allow traffic from one namespace to another. Or disable IP Tables all together (Only in a learning environment).
+
+******* Refer Chap204 again *****
+
+Docker networking --------
 
 
 
@@ -111,12 +238,6 @@ detailed dns resolution as is stored in DNS server
 
 
 
-
-
-
-
-
-  
 
 
 
