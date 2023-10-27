@@ -398,65 +398,494 @@ You will see weave pods in kube-system
 TS weave pods
 > k logs -f weave-net-5khsa weave -n kube-system
 
+Sol:
+> ps -ef | grep kubelet | grep container-runtime
+
+controlplane ~ ➜  ls /opt/cni/bin/
+bandwidth  dhcp   firewall  host-device  ipvlan    macvlan  ptp  static  vlan
+bridge     dummy  flannel   host-local   loopback  portmap  sbr  tuning  vrf
+
+controlplane ~ ➜  ls /opt/cni/bin/
+bandwidth  dhcp   firewall  host-device  ipvlan    macvlan  ptp  static  vlan
+bridge     dummy  flannel   host-local   loopback  portmap  sbr  tuning  vrf
+
+controlplane ~ ✖ cat /etc/cni/net.d/10-flannel.conflist 
+{
+  "name": "cbr0",
+  "cniVersion": "0.3.1",
+  "plugins": [
+    {
+      "type": "flannel",
+      "delegate": {
+        "hairpinMode": true,
+        "isDefaultGateway": true
+      }
+    },
+    {
+      "type": "portmap",
+      "capabilities": {
+        "portMappings": true
+      }
+    }
+  ]
+}
+
+# IPAM --------
+IP Address Management
+
+Weaveworks assigns 10.32.0.0/12 for entire network
+ IPs frim 10.32.0.1 - 10.47.255.254 = 1,048,574 IPs
+
+Soln:
+root@node01 ~ ➜  cat /etc/cni/net.d/10-weave.conflist 
+{
+    "cniVersion": "0.3.0",
+    "name": "weave",
+    "plugins": [
+        {
+            "name": "weave",
+            "type": "weave-net",
+            "hairpinMode": true
+        },
+        {
+            "type": "portmap",
+            "capabilities": {"portMappings": true},
+            "snat": true
+        }
+    ]
+}
+
+> ip add
+
+> Find the Ip address allocation of weave
+Command line options: map[conn-limit:200 datapath:datapath db-prefix:/weavedb/weave-net docker-api: expect-npc:true http-addr:127.0.0.1:6784 ipalloc-init:consensus=1 ipalloc-range:10.244.0.0/1
+
+controlplane ~ ✖  run busybox --image=busybox --dry-run=client -oyaml -- sleep 1000 > busybox.yaml
+apiVersion: v1
+kind: Pod
+metadata:
+  creationTimestamp: null
+  labels:
+    run: busybox
+  name: busybox
+spec:
+  nodeName: node01
+  containers:
+  - args:
+    - sleep
+    - "1000"
+    image: busybox
+    name: busybox
+    resources: {}
+  dnsPolicy: ClusterFirst
+  restartPolicy: Always
+status: {}
+
+controlplane ~ ✖ k exec busybox -- ip route
+default via 10.244.192.0 dev eth0 
+10.244.0.0/16 dev eth0 scope link  src 10.244.192.2 
+
+# Service Networking
+1. When services are created in k8s for a pod/s, IP:Port comibination is added to IPTABLES to redicrect to the POD IP
+2. Services are cluster wide concept, ie they exists on all nodes; also they do not exist as in there is no server/service listening on the IP of the service. Service is an virtual object.
+3. A svc is assigned a IP from predefined range, the kube-proxy on each node gets the IP address and creates forwardning rules on each node in cluster.
+The IP:PORT svc is forwarded to the POD IP.
+4. kube-proxy uses USERSPACE(ports), IPVS, IPTABLES, the kube-proxy mode option can be set using the proxy mode option using the kube-proxy service
+kube-proxy --proxy-mode [userspace | iptables | ipvs]
+5. The service IP range is specified in kube-api-server --service-cluster-ip-range ipNet(Default: 10.0.0.0/24)
+service-cluster-ip-range
+ps aux | grep kube-api-server
+kube-apiserver --authorization-mode=Node,RBAC --service-cluster-ip-range=10.96.0.0/12   IP_RANGE = 10.96.0.0 to 10.111.255.255
+6. POD Nwn CIDR range 10.244.0.0/16   IP_RANGE = 10.244.0.0 to 10.244.255.255
+7. The POD IP range and service IP range, whatever is provided should not overlap with one another.
+8. You can search the IP table routing for the Service of your POD
+iptables -L -t nat | grep db-service
+The table will show the routing from the serviceIP:port to podIP:port
+9. cat /var/log/kube-proxy.log  - this is where you can see the routing logs, it will show something like
+Using iptables Proxier
+The location may vary for logs and also the logs depends on the verbosity
+
+Soln:
+1. > k get nodes -owide -- check the ip
+> ip add -- now check the eth which corresponds to ip of the nodes
+
+2. controlplane ~ ➜  k logs -f weave-net-8mptz -n kube-system
+Defaulted container "weave" out of: weave, weave-npc, weave-init (init)
+INFO: 2023/10/26 15:56:12.390517 Command line options: map[conn-limit:200 datapath:datapath db-prefix:/weavedb/weave-net docker-api: expect-npc:true http-addr:127.0.0.1:6784 ipalloc-init:consensus=1 ipalloc-range:10.244.0.0/16
+FIND ipalloc-range
+
+3. controlplane ~ ✖ ps aux | grep kube-api | grep service-cluster
+root        3531  0.0  0.1 1107512 312704 ?      Ssl  11:55   4:29 kube-apiserver --advertise-address=192.31.216.6 --allow-privileged=true --authorization-mode=Node,RBAC --client-ca-file=/etc/kubernetes/pki/ca.crt --enable-admission-plugins=NodeRestriction --enable-bootstrap-token-auth=true --etcd-cafile=/etc/kubernetes/pki/etcd/ca.crt --etcd-certfile=/etc/kubernetes/pki/apiserver-etcd-client.crt --etcd-keyfile=/etc/kubernetes/pki/apiserver-etcd-client.key --etcd-servers=https://127.0.0.1:2379 --kubelet-client-certificate=/etc/kubernetes/pki/apiserver-kubelet-client.crt --kubelet-client-key=/etc/kubernetes/pki/apiserver-kubelet-client.key --kubelet-preferred-address-types=InternalIP,ExternalIP,Hostname --proxy-client-cert-file=/etc/kubernetes/pki/front-proxy-client.crt --proxy-client-key-file=/etc/kubernetes/pki/front-proxy-client.key --requestheader-allowed-names=front-proxy-client --requestheader-client-ca-file=/etc/kubernetes/pki/front-proxy-ca.crt --requestheader-extra-headers-prefix=X-Remote-Extra- --requestheader-group-headers=X-Remote-Group --requestheader-username-headers=X-Remote-User --secure-port=6443 --service-account-issuer=https://kubernetes.default.svc.cluster.local --service-account-key-file=/etc/kubernetes/pki/sa.pub --service-account-signing-key-file=/etc/kubernetes/pki/sa.key **--service-cluster-ip-range=10.96.0.0/12** --tls-cert-file=/etc/kubernetes/pki/apiserver.crt --tls-private-key-file=/etc/kubernetes/pki/apiserver.key
+
+OR ---
+controlplane ~ ➜  cat /etc/kubernetes/manifests/kube-apiserver.yaml 
+FIND service-cluster-ip-range
+
+4. controlplane ~ ✖ k logs -f kube-proxy-kvw4c -n kube-system
+I1026 15:56:10.248933       1 node.go:141] Successfully retrieved node IP: 192.31.216.9
+I1026 15:56:10.249056       1 server_others.go:110] "Detected node IP" address="192.31.216.9"
+I1026 15:56:10.249093       1 server_others.go:551] "Using iptables proxy"
+I1026 15:56:10.273538       1 server_others.go:190] "Using iptables Proxier"
+
+5. kube-proxy is a Daemonset
+either describe the kube-proxy pod
+OR ---
+k get all --all-namespaces
+you will see the pod with daemonset pretext
+
+# ClusterDNS --------------
+Record are created only for service in Kube DNS and not for pods. We need to enable the POD based records explicitly. Pods added in kube-DNS does not use pod name; instead it used IP with dashes 10-244-2-5
+Hostname      Namespace   Type    ROOT            IP Address
+web-service   apps        svc     cluster.local   10.107.37.188
+10-244-2-5    apps        pod     cluster.local   10.244.2.5
+10-244-1-5    default     pod     cluster.local   10.244.1.5
+
+web-service.apps.svc.cluster.local
+curl http://web-service.apps.svc.cluster.local
+
+# K8s implement DNS in cluster
+THE IP addresses of pods are stored in below file as hostnames with IPdashes
+/etc/resolv.conf
+For svc its stored as name
+CoreDNS has 2 pods for redundancy, it has executbale ./coredns
+
+cat /etc/coredns/Corefile
+.:53 {
+  errors
+  health
+  kubernetes cluter.local in-addr.arpa ip6.arpa {
+    pods insecure
+    upstream
+    fallthroguh in-addr.arpa ip6.arpa
+  }
+  prometheus: 9153
+  proxy . /etc/resolv.conf
+  cache 30
+  reload
+}
+
+> k get cm -n kube-system
+
+1. Coredns watches the cluster and runs using appropriate plugin
+2. Every time a pod is created, the dashed hostname for the pod is created in its DB
+3. Every time a svc is created, the service hostname is created in its DB
+4. For pods to point to CoreDNS, the file /etc/resolv.conf has address to reach the coreDNS server
+5. When coreDNS is created, a service is created "kube-dns" to make it available to other components within cluster
+6. The IP address of this service is configured as nameserver on pods, K8s does this. Kubelet does this
+cat /var/lib/kubelet/config.yaml
+7. host web-service, search the hostname and the web service will be shown
+web-service.default.svc.cluster.local has address 10.107.37.188
+The host resolution is stored in 
+/etc/resolv.conf 
+nameserver  10.96.0.10
+search      default.svc.cluster.local svc.cluster.local cluster.local
+8. For pods, you cannot search by 10-244-2-5
+> host 10-244-2-5  ERROR
+> host 10-244-2-5.default.pod.cluster.local
+10-244-2-5.default.pod.cluster.local has address 10.244.2.5
+
+Soln:
+1. controlplane ~ ➜  k get svc -n kube-system
+NAME       TYPE        CLUSTER-IP   EXTERNAL-IP   PORT(S)                  AGE
+kube-dns   ClusterIP   10.96.0.10   <none>        53/UDP,53/TCP,9153/TCP   9m42s
+
+IP of CoreDNS = 10.96.0.10
+
+2. Where is coreDNS loacted
+> in /etc/coredns/Corefile
+
+3. k get pod coredns-5d78c9869d-t8vqn -n kube-system -oyaml -- check for ConfigMap
+  volumes:
+  - configMap:
+      defaultMode: 420
+      items:
+      - key: Corefile
+        path: Corefile
+      name: coredns
+    name: config-volume
+
+4. controlplane ~ ➜  k describe cm coredns -n kube-system
+Name:         coredns
+Namespace:    kube-system
+Labels:       <none>
+Annotations:  <none>
+
+Data
+====
+Corefile:
+----
+.:53 {
+    errors
+    health {
+       lameduck 5s
+    }
+    ready
+    kubernetes cluster.local in-addr.arpa ip6.arpa {
+       pods insecure
+       fallthrough in-addr.arpa ip6.arpa
+       ttl 30
+    }
+    prometheus :9153
+    forward . /etc/resolv.conf {
+       max_concurrent 1000
+    }
+    cache 30
+    loop
+    reload
+    loadbalance
+}
+
+# INGRESS ---------
+Used to route multiple endpoints with help of ingress routes within your website
+1. Ingress Controller   GCE/Nginx/HAProxy/Traefik
+2. Ingress Resources    Config routes using definition files
+
+#Deployment
+apiVersion: extensions/v1beta1
+kind: Deployment
+metadata:
+  name: nginx-ingress-controller
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      name: nginx-ingress
+    template:
+      metadata:
+        labels:
+          name: nginx-ingress
+      spec:
+        containers:
+        - name: nginx-ingress-controller
+          image: quay.io/kubernetes-ingress-controller/nginx-ingress-controller:0.21.0
+          args:
+            - /nginx-intress-controller
+            - --configmap=$(POD_NAMESPACE)/nginx-configuration
+          env:
+            - name: POD_NAME
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.name
+            - name: POD_NAMESPACE
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.namespace
+          ports:
+            - name: http
+              containerPort: 80
+            - name: https
+              contianerPort: 443  
+
+#Service
+apiVersion: v1
+kind: Service
+metadata:
+  name: nginx-ingress
+spec:
+  type: NodePort
+  ports:
+  - port: 80
+    targetPort: 80
+    protocol: TCP
+    name: http
+  - port: 443
+    targetPort: 443
+    protocol: TCP
+    name: https
+  selector:
+    name: nginx-ingress
+
+#ConfigMap
+apiVersion: v1 
+kind: ConfigMap
+metadata:
+  name: nginx-configuration
+
+#Auth
+apiVersion: v1 
+kind: ServiceAccount
+metadata:
+  name: nginx-ingress-serviceaccount
+
+k create -f ingress-wear.yaml
+ingress-wear.yaml ---
+apiVersion: extensions/v1beta1
+kind: Ingress
+metadata:
+  name: ingress-wear
+spec:
+  backend:
+    serviceName: wear-service
+    servicePort: 80
+
+k create -f ingress-wear-watch.yaml
+ingress-wear-watch.yaml ---
+apiVersion: extensions/v1beta1
+kind: Ingress
+metadata:
+  name: ingress-wear-watch
+spec:
+  rules:
+  - http:
+      paths:
+      - path: /wear
+        backend:
+          serviceName: wear-service
+          servicePort: 80
+      - path: /watch
+        backend:
+          serviceName: watch-service
+          servicePort: 80
+
+k describe ingress ingress-wear-watch.yaml
+
+k create -f ingress-wear-watch.yaml
+ingress-wear-watch.yaml --- # with host url endpoint
+apiVersion: extensions/v1beta1
+kind: Ingress
+metadata:
+  name: ingress-wear-watch
+spec:
+  rules:
+  - host: wear.my-online-store.com
+    http:
+      paths:
+      - backend:
+          serviceName: wear-service
+          servicePort: 80
+  - host: watch.my-online-store.com
+    http:
+      paths:
+      - backend:
+          serviceName: watch-service
+          servicePort: 80
+
+In this article, we will see what changes have been made in previous and current versions in Ingress.
+Like in apiVersion, serviceName and servicePort etc.
+Now, in k8s version 1.20+ we can create an Ingress resource from the imperative way like this:-
+
+Format - kubectl create ingress <ingress-name> --rule="host/path=service:port"
+Example - kubectl create ingress ingress-test --rule="wear.my-online-store.com/wear*=wear-service:80"
+
+https://kubernetes.github.io/ingress-nginx/examples/
+https://kubernetes.github.io/ingress-nginx/examples/rewrite/
+
+Our watch app displays the video streaming webpage at http://<watch-service>:<port>/
+Our wear app displays the apparel webpage at http://<wear-service>:<port>/
+
+We must configure Ingress to achieve the below. When user visits the URL on the left, his request should be forwarded internally to the URL on the right. Note that the /watch and /wear URL path are what we configure on the ingress controller so we can forwarded users to the appropriate application in the backend. The applications don't have this URL/Path configured on them:
+
+http://<ingress-service>:<ingress-port>/watch --> http://<watch-service>:<port>/
+http://<ingress-service>:<ingress-port>/wear --> http://<wear-service>:<port>/
+
+Without the rewrite-target option, this is what would happen:
+http://<ingress-service>:<ingress-port>/watch --> http://<watch-service>:<port>/watch
+http://<ingress-service>:<ingress-port>/wear --> http://<wear-service>:<port>/wear
+
+Soln:
+1. controlplane ~ ➜  k get ingress -A
+NAMESPACE   NAME                 CLASS    HOSTS   ADDRESS          PORTS   AGE
+app-space   ingress-wear-watch   <none>   *       10.104.214.201   80      8m23s
+
+2. controlplane ~ ✖ k describe ingress ingress-wear-watch -n app-space
+Name:             ingress-wear-watch
+Labels:           <none>
+Namespace:        app-space
+Address:          10.104.214.201
+Ingress Class:    <none>
+Default backend:  <default>
+Rules:
+  Host        Path  Backends
+  ----        ----  --------
+  *           
+              /wear    wear-service:8080 (10.244.0.4:8080)
+              /watch   video-service:8080 (10.244.0.5:8080)
+Annotations:  nginx.ingress.kubernetes.io/rewrite-target: /
+              nginx.ingress.kubernetes.io/ssl-redirect: false
+Events:
+  Type    Reason  Age                  From                      Message
+  ----    ------  ----                 ----                      -------
+  Normal  Sync    9m2s (x2 over 9m3s)  nginx-ingress-controller  Scheduled for sync
+
+k create ingress ingress-pay -n critical-space --rule="/pay=pay-service:8282"
+
+OR 
+
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  annotations:
+    nginx.ingress.kubernetes.io/rewrite-target: /
+  creationTimestamp: "2023-10-26T23:43:49Z"
+  generation: 1
+  name: ingress-pay
+  namespace: critical-space
+  resourceVersion: "5520"
+  uid: cc1f446a-45c5-466c-bb99-29e5fe6970b8
+spec:
+  rules:
+  - http:
+      paths:
+      - backend:
+          service:
+            name: pay-service
+            port:
+              number: 8282
+        path: /pay
+        pathType: Exact
+status:
+  loadBalancer:
+    ingress:
+    - ip: 10.104.214.201
 
 
+kubectl create ingress wear-watch -n app-space --rule="/wear=wear-service:8080" --rule="/watch=video-service:8080"
+kubectl create ingress ingress-wear-watch -n app-space --rule="/wear=wear-service.app-space.svc.cluster.local:8080" --rule="/watch=video-service.app-space.svc.cluster.local:8080"
+
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  annotations:
+    nginx.ingress.kubernetes.io/rewrite-target: /
+    nginx.ingress.kubernetes.io/ssl-redirect: "false"
+  creationTimestamp: "2023-10-27T00:17:04Z"
+  generation: 1
+  name: wear-watch
+  namespace: app-space
+  resourceVersion: "4139"
+  uid: bd4b8b66-4953-44dd-8690-9c1111cb7281
+spec:
+  rules:
+  - http:
+      paths:
+      - backend:
+          service:
+            name: wear-service
+            port:
+              number: 8080
+        path: /wear
+        pathType: Exact
+      - backend:
+          service:
+            name: video-service
+            port:
+              number: 8080
+        path: /watch
+        pathType: Exact
+status:
+  loadBalancer:
+    ingress:
+    - ip: 10.103.204.43
 
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
+1. Watch the ingress you create
+2. Add the annotations to ingress
+  annotations:
+    nginx.ingress.kubernetes.io/rewrite-target: /
+    nginx.ingress.kubernetes.io/ssl-redirect: "false"
+3. Go to logs and check the routing if its pointing to right routes eg: in your case it showed default-wear-service which was happening due to incorrect ingress created at start of the session
+4. But good you recovered and checked all the steps again, did not give hope.
+5. You can try ingress practice lessons again.
 
 
 
