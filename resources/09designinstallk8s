@@ -1,4 +1,75 @@
 ------------------------------------
+DESIGN INSTALL K8S START
+------------------------------------
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+------------------------------------
+DESIGN INSTALL K8S END
+------------------------------------
+
+------------------------------------
 NETWORKING IN K8S START
 ------------------------------------
 
@@ -886,6 +957,8 @@ status:
 3. Go to logs and check the routing if its pointing to right routes eg: in your case it showed default-wear-service which was happening due to incorrect ingress created at start of the session
 4. But good you recovered and checked all the steps again, did not give hope.
 5. You can try ingress practice lessons again.
+
+
 
 ------------------------------------
 NETWORKING IN K8S END
