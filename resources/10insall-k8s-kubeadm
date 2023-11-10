@@ -39,15 +39,18 @@ sudo sysctl --system
 lsmod | grep br_netfilter
 lsmod | grep overlay
 
+# Checks
 sysctl net.bridge.bridge-nf-call-iptables net.bridge.bridge-nf-call-ip6tables net.ipv4.ip_forward
 
 sudo mkdir -m 755 /etc/apt/keyrings
 
-curl -fsSL https://pkgs.k8s.io/core:/stable:/v1.27/deb/Release.key | sudo gpg --dearmor -o /etc/apt/keyrings/kubernetes-apt-keyring.gpg
+# NOT WORKING
+#curl -fsSL https://pkgs.k8s.io/core:/stable:/v1.27/deb/Release.key | sudo gpg --dearmor -o /etc/apt/keyrings/kubernetes-apt-keyring.gpg
 
 
-echo 'deb [signed-by=/etc/apt/keyrings/kubernetes-apt-keyring.gpg] https://pkgs.k8s.io/core:/stable:/v1.27/deb/ /' | sudo tee /etc/apt/sources.list.d/kubernetes.list
+#echo 'deb [signed-by=/etc/apt/keyrings/kubernetes-apt-keyring.gpg] https://pkgs.k8s.io/core:/stable:/v1.27/deb/ /' | sudo tee /etc/apt/sources.list.d/kubernetes.list
 
+# NOT WORKING
 
 curl -fsSL https://packages.cloud.google.com/apt/doc/apt-key.gpg | gpg --dearmor -o /etc/apt/keyrings/kubernetes-archive-keyring.gpg
 
@@ -68,45 +71,35 @@ sudo cp -i /etc/kubernetes/admin.conf $HOME/.kube/config
 sudo chown $(id -u):$(id -g) $HOME/.kube/config
 
 worker node
-kubeadm join 192.18.241.3:6443 --token 89k8lj.jkxh7oo3oig04v52 --discovery-token-ca-cert-hash sha256:c8cdc52ca77aa51b2b3013f889de2aed03055307a89a87bd29d55b046882761c 
+kubeadm join 192.2.59.3:6443 --token 8a4t5u.h6iceq42xlaf1aoj --discovery-token-ca-cert-hash sha256:ecda82c0c8401da9cf670da630e5a3a088d12c7e60951f8b6dbcd2645d5cc8f4
 
 Instead of weave go with Flannel
 
 k apply -f https://github.com/flannel-io/flannel/releases/latest/download/kube-flannel.yml
 
+Download the kube-flannel.yml > add 
+
+#add iface in containers
+  containers:
+  - name: kube-flannel
+    image: quay.io/coreos/flannel:v0.14.0
+    command:
+    - /opt/bin/flanneld
+    args:
+    - --ip-masq
+    - --kube-subnet-mgr
+    - --iface=interface_name
+    - --iface=eth0
+https://serverfault.com/questions/1065492/kubernetes-how-do-i-let-kubernetes-use-the-internal-network-for-node-to-node-co
+
+https://github.com/flannel-io/flannel/blob/master/Documentation/configuration.md
 k get pod -A
 
 how to check "Is Flannel using 'eth0' interface for inter-host communication ?"
+
 > k logs -f kube-flannel-ds-555g7 -n kube-flannel
->  11:43:13.661079       1 kube.go:511] Creating the node lease for IPv4. This is the n.Spec.PodCIDRs: [10.244.1.0/24]
-> controlplane ~ ✖ k logs -f kube-flannel-ds-555g7 -n kube-flannel
-Defaulted container "kube-flannel" out of: kube-flannel, install-cni-plugin (init), install-cni (init)
-I1101 11:43:12.472851       1 main.go:210] CLI flags config: {etcdEndpoints:http://127.0.0.1:4001,http://127.0.0.1:2379 etcdPrefix:/coreos.com/network etcdKeyfile: etcdCertfile: etcdCAFile: etcdUsername: etcdPassword: version:false kubeSubnetMgr:true kubeApiUrl: kubeAnnotationPrefix:flannel.alpha.coreos.com kubeConfigFile: iface:[] ifaceRegex:[] ipMasq:true ifaceCanReach: subnetFile:/run/flannel/subnet.env publicIP: publicIPv6: subnetLeaseRenewMargin:60 healthzIP:0.0.0.0 healthzPort:0 iptablesResyncSeconds:5 iptablesForwardRules:true netConfPath:/etc/kube-flannel/net-conf.json setNodeNetworkUnavailable:true}
-W1101 11:43:12.472932       1 client_config.go:617] Neither --kubeconfig nor --master was specified.  Using the inClusterConfig.  This might not work.
-I1101 11:43:12.569986       1 kube.go:145] Waiting 10m0s for node controller to sync
-I1101 11:43:12.570043       1 kube.go:490] Starting kube subnet manager
-I1101 11:43:13.570726       1 kube.go:152] Node controller sync successful
-I1101 11:43:13.570752       1 main.go:230] Created subnet manager: Kubernetes Subnet Manager - node01
-I1101 11:43:13.570757       1 main.go:233] Installing signal handlers
-I1101 11:43:13.570987       1 main.go:541] Found network config - Backend type: vxlan
-I1101 11:43:13.571015       1 match.go:206] Determining IP address of default interface
-I1101 11:43:13.571432       1 match.go:259] Using interface with name eth1 and address 172.25.0.54
-I1101 11:43:13.571471       1 match.go:281] Defaulting external address to interface address (172.25.0.54)
-I1101 11:43:13.571546       1 vxlan.go:141] VXLAN config: VNI=1 Port=0 GBP=false Learning=false DirectRouting=false
-W1101 11:43:13.571672       1 device.go:97] "flannel.1" already exists with incompatible configuration: vtep (external) interface: 5490 vs 5488; recreating device
-I1101 11:43:13.661079       1 kube.go:511] Creating the node lease for IPv4. This is the n.Spec.PodCIDRs: [10.244.1.0/24]
-I1101 11:43:13.661372       1 main.go:355] Setting up masking rules
-I1101 11:43:13.677516       1 main.go:406] Changing default FORWARD chain policy to ACCEPT
-I1101 11:43:13.678770       1 iptables.go:290] generated 7 rules
-I1101 11:43:13.679484       1 iptables.go:290] generated 3 rules
-I1101 11:43:13.679586       1 main.go:434] Wrote subnet file to /run/flannel/subnet.env
-I1101 11:43:13.679605       1 main.go:438] Running backend.
-I1101 11:43:13.679715       1 vxlan_network.go:65] watching for new subnet leases
-I1101 11:43:13.688944       1 main.go:459] Waiting for all goroutines to exit
-I1101 11:43:13.689254       1 iptables.go:283] bootstrap done
-I1101 11:43:13.696988       1 iptables.go:283] bootstrap done
-I1101 11:43:15.259907       1 kube.go:511] Creating the node lease for IPv4. This is the n.Spec.PodCIDRs: [10.244.0.0/24]
-I1101 11:43:15.259956       1 subnet.go:159] Batch elem [0] is { lease.Event{Type:0, Lease:lease.Lease{EnableIPv4:true, EnableIPv6:false, Subnet:ip.IP4Net{IP:0xaf40000, PrefixLen:0x18}, IPv6Subnet:ip.IP6Net{IP:(*ip.IP6)(nil), PrefixLen:0x0}, Attrs:lease.LeaseAttrs{PublicIP:0xac19002b, PublicIPv6:(*ip.IP6)(nil), BackendType:"vxlan", BackendData:json.RawMessage{0x7b, 0x22, 0x56, 0x4e, 0x49, 0x22, 0x3a, 0x31, 0x2c, 0x22, 0x56, 0x74, 0x65, 0x70, 0x4d, 0x41, 0x43, 0x22, 0x3a, 0x22, 0x39, 0x65, 0x3a, 0x65, 0x30, 0x3a, 0x36, 0x34, 0x3a, 0x30, 0x32, 0x3a, 0x32, 0x36, 0x3a, 0x65, 0x34, 0x22, 0x7d}, BackendV6Data:json.RawMessage(nil)}, Expiration:time.Date(1, time.January, 1, 0, 0, 0, 0, time.UTC), Asof:0}} }
+I1110 00:40:31.130480       1 main.go:210] CLI flags config: {etcdEndpoints:http://127.0.0.1:4001,http://127.0.0.1:2379 etcdPrefix:/coreos.com/network etcdKeyfile: etcdCertfile: etcdCAFile: etcdUsername: etcdPassword: version:false kubeSubnetMgr:true kubeApiUrl: kubeAnnotationPrefix:flannel.alpha.coreos.com kubeConfigFile: iface:[eth0] ifaceRegex:[] ipMasq:true ifaceCanReach: subnetFile:/run/flannel/subnet.env publicIP: publicIPv6: subnetLeaseRenewMargin:60 healthzIP:0.0.0.0 healthzPort:0 iptablesResyncSeconds:5 iptablesForwardRules:true netConfPath:/etc/kube-flannel/net-conf.json setNodeNetworkUnavailable:true}
+I1110 00:40:32.205306       1 match.go:259] Using interface with name eth0 and address 192.2.59.6
 
 Ref https://github.com/flannel-io/flannel#deploying-flannel-manually
 
@@ -118,7 +111,7 @@ Networking addons likea weave/flannel https://kubernetes.io/docs/concepts/cluste
 https://github.com/flannel-io/flannel/releases/latest/download/kube-flannel.yml
 
 
-As per the CKA exam changes (effective September 2020), End to End tests is no longer part of the exam and hence it has been removed from the course.
+As per the CKA exam changes (effective September 2020), End to End teswts is no longer part of the exam and hence it has been removed from the course.
 
 
 
