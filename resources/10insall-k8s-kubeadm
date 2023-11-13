@@ -120,26 +120,111 @@ If you are still interested to learn this, please check out the complete tutoria
 https://www.youtube.com/watch?v=-ovJrIIED88&list=PL2We04F3Y_41jYdadX55fdJplDvgNGENo&index=18
 
 
+https://kubernetes.io/docs/tasks/debug-application-cluster/debug-appilcation
+
+> kubectl run ephemeral-demo --image=registry.k8s.io/pause:3.1 --restart=Never
+> kubectl exec -it ephemeral-demo -- sh
+> kubectl debug -it ephemeral-demo --image=busybox:1.28 --target=ephemeral-demo
+> kubectl run myapp --image=busybox:1.28 --restart=Never -- sleep 1d
+> kubectl debug myapp -it --image=ubuntu --share-processes --copy-to=myapp-debug
+> kubectl debug myapp -it --copy-to=myapp-debug --container=myapp -- sh
+If you don't see a command prompt, try pressing enter.
+Note:
+kubectl debug automatically generates a container name if you don't choose one using the --container flag.
+The -i flag causes kubectl debug to attach to the new container by default. You can prevent this by specifying --attach=false. If your session becomes disconnected you can reattach using kubectl attach.
+The --share-processes allows the containers in this Pod to see processes from the other containers in the Pod. For more information about how this works, see Share Process Namespace between Containers in a Pod.
+
+> kubectl delete pod myapp myapp-debug
+> kubectl run --image=busybox:1.28 myapp -- false
+
+> kubectl run myapp --image=busybox:1.28 --restart=Never -- sleep 1d
+> kubectl debug myapp --copy-to=myapp-debug --set-image=*=ubuntu
+
+> kubectl debug node/mynode -it --image=ubuntu
+Creating debugging pod node-debugger-mynode-pdx84 with container debugger on node mynode.
+If you don't see a command prompt, try pressing enter.
+root@ek8s:/#
+
+> kubectl delete pod node-debugger-mynode-pdx84
 
 
+Tell me and I forget. Teach me and I remember. Involve me and I learn.
+
+– Benjamin Franklin
 
 
+# USE THIS CHEAT SHEET FOR K8S STUDIES
+https://kubernetes.io/docs/reference/kubectl/cheatsheet/
+
+source <(kubectl completion bash) # set up autocomplete in bash into the current shell, bash-completion package should be installed first.
+echo "source <(kubectl completion bash)" >> ~/.bashrc # add autocomplete permanently to your bash shell.
+
+alias k=kubectl
+complete -o default -F __start_kubectl k
+
+alias k=kubectl
+k config set-context --current --namespace=alpha
+k config set-context --current --namespace=beta
+k config set-context --current --namespace=kube-system
+k config set-context --current --namespace=default
+
+clear && k get all --show-labels
+clear && k get all -owide --show-labels
+
+# Application Failure
+
+1. Check the service name for the deployments if the actual service name matches the one described in kubernetes service
+2. Check the Pod/Container port incase of mysql it should be 3306.
+MAKE THE CHANGES IN THE SERVICE AND NOT DEPLOYMENT
+3. Check the selector name and change if required, see to that the endpoint is visible in service.
+The pod Labels and Svc label should match
+4. See to the credentials if its set properly, check the deployment config
+5. The credentials stored in 2 locations
+   1. The webservice mysql config
+   2. mysql Pod 
+
+# Control plane Failure
+1. service kube-apiserver status
+2. service kube-controller-manager status
+3. service kube-scheduler status
+4. service kubelet status
+5. service kube-proxy status
+6. k logs kube-apiserver-master -n kube-system
+7. sudo journalctl -u kube-apiserver
+8. k get nodes
+9. k get pods -n kube-system
+10. k scale deploy app --replicas=2
+
+1. 
+cd /etc/kubernetes/manifests/ and edit the files whichever has incorrect config
+controlplane /etc/kubernetes/manifests ➜  ls
+etcd.yaml  kube-apiserver.yaml  kube-controller-manager.yaml  kube-scheduler.yaml
+2. k scale deploy app --replicas=2
+3. The config in vim kube-controller-manager.yaml was not right, it was pointing to incorrect config
+ - --kubeconfig=/etc/kubernetes/controller-manager-XXX.conf
+It should point to /etc/kubernetes/controller-manager.conf
+4. Change the volume path for k8s-certs in kube-controller-manager.yaml
 
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
+# Worker node Failure
+1. k get nodes
+2. k describe node node01
+3. why node fails? The Status of flags should be False
+   1. OO Disk                 kubelet has sufficient disk       Fales 
+   2. OOM, Memory Pressure    kubelet has sufficient memory     False
+   3. Disk Pressure           kubelet has not disk pressure     False
+   4. PID Pressure            kubelet has sufficient PID        False
+   5. Ready                   kubelet ready                     True
+4. If node is healthy then Ready flag is set to TRUE
+5. Statuses are set to UNKNOWN when worker node stops communicating with master due to a CRASH. Possible loss of node.
+6. Check Last heartbeat time of the node
+7. Check the status of node, if its online or CRASHED
+   1. use top command to check memory
+   2. df -h to check disk space
+8. service kubelet status
+9. sudo journalctl -u kubelet
+10. openssl x509 -in /var/lib/kubelet/worker-.crt -text   # Check the certs are not expired and they are part of the right group and certs are issued by right CA
+11. 
 
 
 
