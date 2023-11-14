@@ -330,13 +330,19 @@ https://kodekloud.com/community/t/hi-all-need-help-as-i-am-not-able-to-understan
 https://github.com/kodekloudhub/certified-kubernetes-administrator-course/blob/master/docs/12-Troubleshooting/10-Practice-Test-Troubleshoot-Network.md
 
 
+--- Find the json o/p
+12. status.containerStatuses[0].state.waiting.reason
+13. status.containerStatuses[1].restartCount
+14. status.containerStatuses[?(@.name=="redis-container")].restartCount  ## Find restart count of redis when the container can be either up or down
 
+1.  $[*].metadata.name     list all pod names in list
+2.  users[*].name    
 
+https://kubernetes.io/docs/reference/kubectl/jsonpath/
 
-
-
-
-
+cat q1.json | jpath $.property1
+cat q2.json | jpath $.bus
+echo "cat q3.json | jpath $.bus.price" >> answer3.sh
 
 
 
