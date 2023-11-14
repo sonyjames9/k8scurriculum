@@ -325,8 +325,9 @@ DNS Troubleshooting:  https://kubernetes.io/docs/tasks/administer-cluster/dns-de
 
 ---> https://kubernetes.io/docs/tasks/debug/debug-application/
 
-
-
+2. kubectl exec -it kube-proxy-XXXXX -n kube-system – /bin/sh
+https://kodekloud.com/community/t/hi-all-need-help-as-i-am-not-able-to-understand-the-solution-mentioned-for-pra/25416/4
+https://github.com/kodekloudhub/certified-kubernetes-administrator-course/blob/master/docs/12-Troubleshooting/10-Practice-Test-Troubleshoot-Network.md
 
 
 
