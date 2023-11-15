@@ -344,6 +344,62 @@ cat q1.json | jpath $.property1
 cat q2.json | jpath $.bus
 echo "cat q3.json | jpath $.bus.price" >> answer3.sh
 
+cat q13.json | jpath '$[*]'
+alpine-host ~ ➜  cat q13.json | jpath '$[0,3]'
+[
+"car",
+"bike"
+]
+
+--------------------------
+https://kodekloud.com/community/t/i-am-trying-to-add-a-service-account-to-the-pod-but-i-cannot-see-it-being-mounte/262934/23
+
+kubectl exec nginx -it -- /bin/sh
+This gets you into the pod, then
+
+ls -l /var/run/secrets/kubernetes.io/serviceaccount
+and you should see a file called token
+
+curl -k -H "Authorization: Bearer $(cat /var/run/secrets/kubernetes.io/serviceaccount/token)" <https://kubernetes.default.svc/api/v1/persistentvolumes>
+
+$ k exec -it nginx -- bash
+root@nginx:/# cat /var/run/secrets//kubernetes.io/serviceaccount/token | awk -F"." '{print $2}' | base64 -d
+{"aud":["<https://kubernetes.default.svc.cluster.local>"],"exp":1703156498,"iat":1671620498,"iss":"<https://kubernetes.default.svc.cluster.local>","<http://kubernetes.io|kubernetes.io>":{"namespace":"cka","pod":{"name":"nginx","uid":"f816aef9-b0ee-495f-a5c5-d15d0a0c17ac"},"serviceaccount":{"name":"default","uid":"f226b9da-32d0-4936-a413-be36f98614bf"},"warnafter":1671624105},"nbf":1671620498,"sub":"system:serviceaccount:cka:default"}base64: invalid input
+
+https://kodekloud.com/community/t/hello-does-anyone-know-why-the-below-gives-the-error-error-exactly-one-name/227209/2
+--------------------------
+
+--------------------------
+YAML AND JSON
+--------------------------
+YAML 
+----------
+
+k/v pair ------
+Fruit: Apple
+Vegetable: Carrot
+Liquid: Water
+Meat: Chicken
+
+Array/Lists ----------
+Fruits:
+-   Orange
+-   Apple
+-   Banana
+
+Vegetables:
+-   Carrot
+-   Tomato
+
+Dictionary --------
+Banana:
+  Calories: 105
+  Fat:  0.4g
+Grapes:
+  Calories: 62
+  Fat:  0.3g
+
+https://kodekloud.com/topic/introduction-to-yaml-3/
 
 
 
@@ -356,6 +412,50 @@ echo "cat q3.json | jpath $.bus.price" >> answer3.sh
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+--------------------------
+Advanced Kubectl commands
+--------------------------
 
 ------------------------------------
 INSTALL K8S KUBEADM END
