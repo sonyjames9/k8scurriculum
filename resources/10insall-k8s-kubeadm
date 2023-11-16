@@ -399,13 +399,37 @@ Grapes:
   Calories: 62
   Fat:  0.3g
 
-https://kodekloud.com/topic/introduction-to-yaml-3/
+Key Value/Dictionary/lists
+Fruits:
+  -   Orange
+        Calories: 105
+        Fat:  0.4g
+  -   Apple
+        Calories: 105
+        Fat:  0.4g
+
+employees:
+  - name: john
+    gender: male
+    age: 24
 
 
 
-
-
-
+employee:
+  name: john
+  gender: male
+  age: 24
+  address:
+    city: 'edison'
+    state: 'new jersey'
+    country: 'united states'
+  payslips:
+    - month:  june
+      amount: 1400
+    - month: july
+      amount: 2400
+    - month: august 
+      amount: 3400
 
 
 
