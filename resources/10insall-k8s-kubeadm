@@ -431,6 +431,41 @@ employee:
     - month: august 
       amount: 3400
 
+JSON PATH ----------------
+$[0,3]          Select 0th and 3rd element
+$[?(@>40)]      Get all nos greater than 40
+$[?(@==40)]      Get nos same as 40
+$[?(@!=40)]      Get all nos no equal to 40
+$.car.wheels[?(@.location=="rear-right")].model      Get model of car with location "rear-left" without hard-coding the script
+
+echo "cat q13.json | jpath '\$[0,3]'" >> answer13.sh
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
