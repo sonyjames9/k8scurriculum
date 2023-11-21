@@ -431,11 +431,59 @@ employee:
     - month: august 
       amount: 3400
 
+Get all colors and price in json
+$.*.colors
+$.*.price
 
+Get all models in json array
+$[*].model
+$.car.wheels[*].model
+$.bus.wheels[*].model
+$.*.wheels[*].model
 
+cat q1.json | jpath $.*
+cat q2.json | jpath $.*.color
+cat q3.json | jpath $.vehicles.*.price
+cat q4.json | jpath $.*.model
+cat q5.json | jpath $.car.wheels[*].model
+cat q6.json | jpath $.*.wheels[*].model
+cat q7.json | jpath $.employee.payslips[*].amount
+cat q8.json | jpath $.prizes.*.laureates[*].firstname
+cat q9.json | jpath '$.prizes[?(@.category=="peace")].laureates[*].firstname'
+cat q9.json | jpath '$.prizes[?(@.year==2014)].laureates[*].firstname'
+echo "cat q9.json | jpath '$.prizes[?(@.year==2014)].laureates[*].firstname'" >> answer9.sh
 
+JSON Lists -----------------
 
+"cat input.json | jpath '$[0,4]'"
+echo "cat input.json | jpath '\$[0,4]'" >> answer2.sh
 
+cat input.json | jpath '$[0:5]'
+echo "cat input.json | jpath '\$[0:5]'" >> answer3.sh
+
+cat input.json | jpath '$[2:7]'
+echo "cat input.json | jpath '\$[2:7]'">> answer4.sh
+
+cat input.json | jpath '$[9]'
+cat input.json | jpath '$[-1:]'
+echo "cat input.json | jpath '\$[-1:]'" >> answer5.sh
+
+cat input.json | jpath '$[6:]'
+
+echo "cat input.json | jpath '\$[3:9]'" >>answer7.sh
+
+cat input.json | jpath '$[-3:]'
+echo "cat input.json | jpath '\$[-3:]'" >> answer9.sh
+
+cat input.json | jpath '$[-8:-2]'
+
+cat input.json | jpath '$[0:5].phone'
+echo "cat input.json | jpath '\$[0:5].phone'" >> answer11.sh
+
+cat input.json | jpath '$[10:].age'
+
+cat input.json | jpath '$[10:].age'
+echo "cat input.json | jpath '\$[10:].age'" >> answer12.sh
 
 
 
