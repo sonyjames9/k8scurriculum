@@ -438,100 +438,165 @@ $[?(@==40)]      Get nos same as 40
 $[?(@!=40)]      Get all nos no equal to 40
 $.car.wheels[?(@.location=="rear-right")].model      Get model of car with location "rear-left" without hard-coding the script
 
+Get all colors and price in json
+$.*.colors
+$.*.price
+
 echo "cat q13.json | jpath '\$[0,3]'" >> answer13.sh
 
+Get all models in json array
+$[*].model
+$.car.wheels[*].model
+$.bus.wheels[*].model
+$.*.wheels[*].model
 
 
+cat q1.json | jpath $.*
+cat q2.json | jpath $.*.color
+cat q3.json | jpath $.vehicles.*.price
+cat q4.json | jpath $.*.model
+cat q5.json | jpath $.car.wheels[*].model
+cat q6.json | jpath $.*.wheels[*].model
+cat q7.json | jpath $.employee.payslips[*].amount
+cat q8.json | jpath $.prizes.*.laureates[*].firstname
+cat q9.json | jpath '$.prizes[?(@.category=="peace")].laureates[*].firstname'
+cat q9.json | jpath '$.prizes[?(@.year==2014)].laureates[*].firstname'
+echo "cat q9.json | jpath '$.prizes[?(@.year==2014)].laureates[*].firstname'" >> answer9.sh
 
 
-cat input.json | jpath $.kind
-["Pod"]
-echo "cat input.json | jpath $.kind" >> answer9.sh
+JSON Lists -----------------
+
+"cat input.json | jpath '$[0,4]'"
+echo "cat input.json | jpath '\$[0,4]'" >> answer2.sh
+
+cat input.json | jpath '$[9]'
 
 cat input.json | jpath $.spec.nodeName
 ["node01"]
+cat input.json | jpath '$[0:5]'
+echo "cat input.json | jpath '\$[0:5]'" >> answer3.sh
 
-cat input.json | jpath $.spec.containers[0].image["nginx:alpine"]
+cat input.json | jpath '$[2:7]'
+echo "cat input.json | jpath '\$[2:7]'">> answer4.sh
 
-echo "cat input.json | jpath $.spec.containers[0].image" >> answer13.sh
+cat input.json | jpath '$[-1:]'
+echo "cat input.json | jpath '\$[-1:]'" >> answer5.sh
 
-cat k8status.json | jpath $.status.containerStatuses[0].state.waiting.reason
-["ContainerCreating"]
+echo "cat input.json | jpath '\$[3:9]'" >>answer7.sh
 
-echo "cat k8status.json | jpath $.status.containerStatuses[0].state.waiting.reason" >> answer15.sh
+cat input.json | jpath '$[-3:]'
+echo "cat input.json | jpath '\$[-3:]'" >> answer9.sh
 
-cat k8status.json | jpath $.status.containerStatuses[1].restartCount
-[2]
+cat input.json | jpath '$[-8:-2]'
 
-echo "cat k8status.json | jpath $.status.containerStatuses[1].restartCount" >> answer16.sh
+cat input.json | jpath '$[0:5].phone'
+echo "cat input.json | jpath '\$[0:5].phone'" >> answer11.sh
 
-cat podslist.json | jpath '$[*].metadata.name'
-echo "cat podslist.json | jpath '\$[*].metadata.name'" >> answer17.sh
+cat input.json | jpath '$[10:].age'
+echo "cat input.json | jpath '\$[10:].age'" >> answer12.sh
 
-cat userslist.json | jpath '$.users[*].name'
-["aws-user","dev-user","test-user"]
+cat input.json | jpath '$[6:]'
+
+cat input.json | jpath '$[-8:-2]'
+
+cat input.json | jpath '$[0:5].phone'
+echo "cat input.json | jpath '\$[0:5].phone'" >> answer11.sh
+
+cat input.json | jpath '$[10:].age'
+echo "cat input.json | jpath '\$[10:].age'" >> answer12.sh
 
 echo "cat userslist.json | jpath '\$.users[*].name'" >> answer18.sh
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
 
 --------------------------
 Advanced Kubectl commands
 --------------------------
+
+cat input.json | jpath $.kind
+["Pod"]
+
+cat input.json | jpath $.spec.containers[0].image["nginx:alpine"]
+
+echo "cat input.json | jpath $.kind" >> answer9.sh
+
+
+
+echo "cat input.json | jpath $.spec.containers[0].image" >> answer13.sh
+cat k8status.json | jpath $.status.containerStatuses[0].state.waiting.reason
+["ContainerCreating"]
+
+echo "cat k8status.json | jpath $.status.containerStatuses[0].state.waiting.reason" >> answer15.sh
+echo "cat input.json | jpath '\$[3:9]'" >>answer7.sh
+
+cat k8status.json | jpath $.status.containerStatuses[1].restartCount
+[2]
+
+cat userslist.json | jpath '$.users[*].name'
+["aws-user","dev-user","test-user"]
+
+echo "cat k8status.json | jpath $.status.cat input.json | jpath '$[-8:-2]'
+
+cat podslist.json | jpath '$[*].metadata.name'
+echo "cat podslist.json | jpath '\$[*].metadata.name'" >> answer17.sh
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 ------------------------------------
 INSTALL K8S KUBEADM END
