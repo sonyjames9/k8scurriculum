@@ -487,8 +487,6 @@ echo "cat input.json | jpath '\$[3:9]'" >>answer7.sh
 cat input.json | jpath '$[-3:]'
 echo "cat input.json | jpath '\$[-3:]'" >> answer9.sh
 
-cat input.json | jpath '$[-8:-2]'
-
 cat input.json | jpath '$[0:5].phone'
 echo "cat input.json | jpath '\$[0:5].phone'" >> answer11.sh
 
@@ -498,12 +496,6 @@ echo "cat input.json | jpath '\$[10:].age'" >> answer12.sh
 cat input.json | jpath '$[6:]'
 
 cat input.json | jpath '$[-8:-2]'
-
-cat input.json | jpath '$[0:5].phone'
-echo "cat input.json | jpath '\$[0:5].phone'" >> answer11.sh
-
-cat input.json | jpath '$[10:].age'
-echo "cat input.json | jpath '\$[10:].age'" >> answer12.sh
 
 echo "cat userslist.json | jpath '\$.users[*].name'" >> answer18.sh
 
@@ -519,8 +511,6 @@ cat input.json | jpath $.spec.containers[0].image["nginx:alpine"]
 
 echo "cat input.json | jpath $.kind" >> answer9.sh
 
-
-
 echo "cat input.json | jpath $.spec.containers[0].image" >> answer13.sh
 cat k8status.json | jpath $.status.containerStatuses[0].state.waiting.reason
 ["ContainerCreating"]
@@ -531,10 +521,10 @@ echo "cat input.json | jpath '\$[3:9]'" >>answer7.sh
 cat k8status.json | jpath $.status.containerStatuses[1].restartCount
 [2]
 
+echo "cat k8status.json | jpath $.status"
+
 cat userslist.json | jpath '$.users[*].name'
 ["aws-user","dev-user","test-user"]
-
-echo "cat k8status.json | jpath $.status.cat input.json | jpath '$[-8:-2]'
 
 cat podslist.json | jpath '$[*].metadata.name'
 echo "cat podslist.json | jpath '\$[*].metadata.name'" >> answer17.sh
