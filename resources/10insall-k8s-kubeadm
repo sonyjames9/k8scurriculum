@@ -495,29 +495,69 @@ cat input.json | jpath '$[10:].age'
 cat input.json | jpath '$[10:].age'
 echo "cat input.json | jpath '\$[10:].age'" >> answer12.sh
 
+JSON Path -----------------
+Large Data SETS
+1. 100s of Nodes
+2. 10000s of Pods, Deployments, ReplicaSets
+
+kubectl 
+k get nodes --> interacts with kube-apiserver
+kube-apiserver speaks in json format only; kubectl utility converts in human-readable format and prints it out to screen.
+
+During this conversion, lots of data is hidden and only necessary data is returned in json format
+
+If you want to see all the hidden information, you can use the -o option; then also not all information is returned.
+k get nodes -owide
+
+resource capacity available on nodes
+hw arch
+images 
+
+if you are looking for nodes, taints set on them, arch, images then the normal 'kubectl get nodes -owide' wont return all the information mentioned.
+This is where Json path is helpful, you can use json path to extract all the above mentioned data in tabular format.
+
+How to JSON PATH in kubectl? 
+1. Identify the kubectl commands
+2. Familirize with JSON output
+3. Form the JSON PATH query that will return the requuired document
+> k get pods -ojson
+> .items[0].spec.containers[0].image -- will extract the image from above command
+4. Use the JSON PATH query with kubectl command
+> k get pods -o=jsonpath='{.items[0].spec.containers[0].image}'
+> k get nodes -o=jsonpath='{.items[*].metadata.name}'
+> k get nodes -o=jsonpath='{.items[*].status.nodeInfo.architecture}'
+> k get pods -o=jsonpath='{.items[*].status.capacity.cpu}'
+
+> k get nodes -o=jsonpath='{.items[*].metadata.name}{.items[*].status.capacity.cpu}'
+> master node01 4   4
+
+> k get nodes -o=jsonpath='{.items[*].metadata.name}{"\n"}{.items[*].status.capacity.cpu}'
+\n new line
+\t tab
 
 
+Loops - Range ----------------
+master 04
+node01 04
 
+FOR EACH NODE
+  PRINT NODE NAME \t PRINT CPU COUNT \n
+END FOR
 
+'{range .items[*]}
+  {metadata.name} {"\t"} {.status.capacity.cpu}{"\n"}
+{end}'
 
+> k get nodes -o=jsonpath='{range .items[*]}{metadata.name} {"\t"} {.status.capacity.cpu}{"\n"}{end}'
 
+Custom colums ----
+-o=custom-columns=<COLUMN NAME>:<JSON PATH>
+> k get nodes -o=custom-columns=<COLUMN NAME>:<JSON PATH>
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
+> k get nodes -o=custom-columns=NODE:.metadata.name
+> k get nodes -o=custom-columns=NODE:.metadata.name, CPU:.status.capacity.cpu
+> k get nodes --sort-by=.metadata.name
+> k get nodes --sort-by=.status.capacity.cpu
 
 
 
