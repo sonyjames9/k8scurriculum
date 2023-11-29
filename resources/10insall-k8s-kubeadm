@@ -603,60 +603,7 @@ echo "cat podslist.json | jpath '\$[*].metadata.name'" >> answer17.sh
 
 
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
+NOTES:
 
 
 
