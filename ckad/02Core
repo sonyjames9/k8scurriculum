@@ -1,0 +1,178 @@
+------------------------------------
+INSTALL K8S KUBEADM START
+------------------------------------
+
+Nodes - minions
+- 
+Cluster - multiple nodes
+Master - multiple nodes
+- 
+KUBE Components 
+1. API Server
+2. ETCD
+3. Kubelet
+4. Container Runtime
+5. Controller
+6. Scheduler
+
+1. API Server - Frontend for k8s. All talk to API server to interact with k8s
+2. ETCD - etcd distributed & reliable key value store - stores all data to manage the cluster. etcd stores all the information of multiple master &  nodes  of all NODES IN A distrubuted manner
+- etcd responsible for implementing logs within cluster
+3. Kubelet -  Agent that runs on each cluster.
+- Makes sure that containers are running on nodes as expected
+4. Container Runtime - 
+-  Underlying software that is used to run containers
+- Docker/ ContainerD
+5. Controller - Brain behind orchestration. 
+- Responsible for noticing and responding when nodes, containers or endpoints goes down
+- Makes decisions to bring up new containers in such cases
+6. Scheduler - Distributing work/contaiiners across multiple nodes. Looks for newly created contianers and assignes them to nodes.
+
+1. Master
+kube-api-server
+ETCD
+controller
+scheduler
+2. Worker- Kubelet agent interacts with master and carries out commands requested by Master
+All info is stored in key value storage in ETCD
+Kubelet
+Container Runtime
+
+kubectl tool used to manage and deploy apps in k8s cluster
+
+> kubectl cluster-info
+> kubectl get nodes
+
+----------------------------------------------------------
+DOCKER VS CONTAINERD
+----------------------------------------------------------
+
+CRI - Container Runtime Interface --- RKT
+
+OCI Standards
+Imagespec       - How a image should be built
+Runtimespec   - How a runtime container should be developed
+
+Docker was run using dockershim
+Docker wasnt built based on OCI standards
+K8s introduced dockershim which was a temporary way to support runtime interface
+
+DOCKER
+cli               api       build
+volumes     auth      security
+containerD - Deamon which managed runc
+containerD  is CRI compatible can work directly with k8s, can be used as runtime on its own, separate from docker
+K8s maintianed support docker engine - dockershim was deprecated in 1.24
+
+All images continued to work with containerD
+
+
+containerD  https://containerd.io/
+https://containerd.io/img/architecture.png
+https://github.com/containerd/containerd/blob/main/README.md
+https://github.com/containerd/containerd/blob/main/docs/getting-started.md
+
+
+https://landscape.cncf.io/?selected=containerd
+https://landscape.cncf.io/guide#introduction
+
+ctr     CONTAINERD
+Not very user friendly
+limited features
+
+> ctr images pull docker.io/library/redis:alpine
+> ctr run pull docker.io/library/redis:alpine redis
+
+CLI - nerdctl -----------------------------------
+1. nerdctl provides a Docker like CLI for container D
+2. nerdctl supports docker compose
+3. nerdctl supports newest features in containerd
+   1. Encrypted container images
+   2. Lazy Pulling
+   3. P2P image distribution
+   4. Image signing and verifying
+   5. Namespaces in Kubernetes
+
+> docker
+> nerdctl
+> docker run --name redis redis:alpine
+> nerdctl run --name redis redis:alpine
+> docker run --name webserver -p 80:80 -d nginx
+> nerdctl run --name webserver -p 80:80 -d nginx
+
+
+CLI - crictl -----------------------------------
+1. crictl provides cli for CRI(Container Runtime Interface) compatible container runtimes like (RKT and CONTAINERD)
+2. Installed separately
+3. Used to inspect and debug container runtimes
+   1. Not to create containers ideally
+4. Works across different runtimes
+
+> crictl
+> crictl pull busybox
+> crictl images
+> crictl ps -a
+> crictl exec -i -t 2k2h31209312e12382138021830 ls
+> crictl logs 2k2h31209312e12382138021830
+> crictl pods
+>
+> https://kubernetes.io/docs/tasks/debug/debug-cluster/crictl/
+
+https://github.com/kubernetes-sigs/cri-tools
+https://github.com/kubernetes-sigs/cri-tools/pull/869
+https://github.com/kubernetes-sigs/cri-tools/issues/868
+
+Since k8s 1.24 docker shim was replaced with cri-dockerd.sock
+unix:///run/containerd/containerd.sock
+unix:///run/crio/crio.sock
+unix:///var/run/cri-dockerd.sock
+
+
+##### USERS NEED TO MANUALLY SET THE ENDPOINT
+crictl --runtime-endpoint
+export  CONTAINER_RUNTIME_ENDPOINT
+
+crictl -- https://github.com/kubernetes-sigs/cri-tools/blob/master/docs/crictl.md
+debugging k8s nodes with crictl https://kubernetes.io/docs/tasks/debug/debug-cluster/crictl/
+
+CRICTL COMMANDS
+attach: Attach to a running container
+create: Create a new container
+exec: Run a command in a running container
+version: Display runtime version information
+images, image, img: List images
+inspect: Display the status of one or more containers
+inspecti: Return the status of one or more images
+imagefsinfo: Return image filesystem info
+inspectp: Display the status of one or more pods
+logs: Fetch the logs of a container
+port-forward: Forward local port to a pod
+ps: List containers
+pull: Pull an image from a registry
+run: Run a new container inside a sandbox
+runp: Run a new pod
+rm: Remove one or more containers
+rmi: Remove one or more images
+rmp: Remove one or more pods
+pods: List pods
+start: Start one or more created containers
+info: Display information of the container runtime
+stop: Stop one or more running containers
+stopp: Stop one or more running pods
+update: Update one or more running containers
+config: Get and set crictl client configuration options
+stats: List container(s) resource usage statistics
+statsp: List pod(s) resource usage statistics
+completion: Output bash shell completion code
+checkpoint: Checkpoint one or more running containers
+events, event: Stream the events of containers
+help, h: Shows a list of commands or help for one command
+
+                                    CONTAINERD                      K8S CRI COMMUNITY
+                          CTR                   NERTCTL             CRICTL
+PURPOSE     DEBUGGING       GENERAL             DEBUGGING
+community     CONTAINERD      ContainerD            K8S
+works with      ContainerD           ContainerD            All CRI compatible runtimes
+
+
+PODS
