@@ -176,3 +176,109 @@ works with      ContainerD           ContainerD            All CRI compatible ru
 
 
 PODS
+Single instance of an application, smallest k8s object in  a node
+SIngle pod - multiple containers
+
+kubectl run nginx --image nginx
+
+apiVersion: v1
+kind: Pod
+metadata:
+  name: app
+  labels:
+      app: myapp
+      type: frontend
+  namespace: elastic-stack
+spec:
+  containers:
+  - image: kodekloud/event-simulator
+    name: app
+
+apiVersion: v1
+kind: Pod
+metadata:
+  name: app
+  labels:
+      app: myapp
+spec:
+  containers:
+  - name: nginx-container
+    image: nginx
+
+
+https://uklabs.kodekloud.com/courses/labs-certified-kubernetes-application-developer
+
+If you are asked to edit an existing POD, please note the following:
+If you are given a pod definition file, edit that file and use it to create a new pod.
+If you are not given a pod definition file, you may extract the definition to a file using the below command:
+
+kubectl get pod <pod-name> -o yaml > pod-definition.yaml
+Then edit the file to make the necessary changes, delete, and re-create the pod.
+
+To modify the properties of the pod, you can utilize the kubectl edit pod <pod-name> command. Please note that only the properties listed below are editable.
+spec.containers[*].image
+spec.initContainers[*].image
+spec.activeDeadlineSeconds
+spec.tolerations
+spec.terminationGracePeriodSeconds
+
+
+Replica Sets
+RC is older and the new one is RS
+
+RC ReplicationController
+apiVersion: v1
+kind: ReplicationController
+metadata:
+  name: myapp
+  labels:
+    app: myapp
+    type: frontend
+spec:
+  replicas: <Replicas>
+  selector:
+    app: myapp
+  template:
+    metadata:
+      name: myapp
+      labels:
+        app: myapp
+    spec:
+      containers:
+        - name: myapp
+          image: <Image>
+          ports:
+            - containerPort: <Port>
+
+
+RS ReplicaSet
+apiVersion: apps/v1
+kind: ReplicaSet
+metadata:
+  name: myapp-rs
+  labels: 
+    app: myapp
+    type: front-end  
+spec:
+  replicas: 2    
+  template:
+    metadata:
+      name: myapp-pod
+      labels:
+        app: myapp
+        type: front-end
+    spec:
+      containers:
+        - name: nginx-container
+          image: nginx
+  selector:
+    matchLabels:
+      type: front-end
+
+> k create -f replica-def.yml
+> k replace -f replica-def.yml
+> k scale --replicas=6 -f replica-def.yml
+> k scale --replicas=6 replicaset myapp-replicaset
+
+>  k get replicaset
+>  k delete replicaset myapp-replicaset
