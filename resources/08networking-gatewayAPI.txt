@@ -1,0 +1,224 @@
+------------------------------------
+NETWORKING - GATEWAY API START
+------------------------------------
+
+Ingress - Limitations
+1. Multi-tenancy
+2. Namespace isolation
+3. No RBAC for Features
+4. No Resource isolation
+
+Ingress only supports http rules like
+1. Host matching
+2. Path matching
+HTTP only
+
+No support for
+1. TCP/UDP routing
+2. Traffic slitting/weighting
+3. header manipulation
+4. Authentication
+5. Rate Limititng
+6. Redirects
+7. Rewriting
+8. Middleware
+9. WebSocket support
+10. Custom error pages
+11. Session Affinity
+12. Cross-origin resource sharing(CORS)
+
+
+
+Gateway API -------------
+Official K8s project focuses on layer 4 and layer 7 routing
+This projects represents the next gen k8s ingress, load balancing and service mesh api's
+
+Infrastructure Providers    GatewayClass
+Cluster Operators           Gateway
+Application DEvs            HTTPRoute   TCPRoute    GRPCRoute
+
+gateway-class.yaml ------
+apiVersion: gateway.networking.k8s.io/v1
+kind: GatewayClass
+metadata:
+  name: example-class
+spec:
+  controllerName: example.com/gateway-controller
+   
+
+gateway.yaml ------ #with HTTPRoute
+apiVersion: gateway.networking.k8s.io/v1
+kind: Gateway
+metadata:
+  name: example-gateway
+spec:
+  gatewayClassName: example-class
+  listeners:
+  - name: http
+    protocol: HTTP
+    port: 80
+
+
+http-route.yaml ------ #Route path
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: example-httproute
+spec:
+  parentRefs:
+  - name: example-gateway
+  hostnames:
+  - "www.example.com"
+  rules:
+  - matches:
+    - path:
+        type: PathPrefix
+        value: /login
+    backendRefs:
+    - name: example-svc
+      port: 8080
+
+
+Object        OSI layer       routing             TLS Support       Purpose       
+                              Discriminator
+HTTPRoute     Layer7          Anything in the     Terminated only   HTTP and HTTPS Routing
+                              http protocol
+TLSRoute      between l4-l7   SNI or other TLS    Passthrough or    Routing of TLS protocols including   
+                                                  Terminated        HTTPS where inspection of the HTTP
+                                                                    stream in not required
+                              properties            
+TCPRoute      L4              destination port    Passthru or       Allows for forwarding of a TCP stream  
+                                                  Terminated        from the listener to the backends  
+                                                  
+UDPRoute      L4              destination port    None              Allows for forwarding of a UDP stream
+                                                                    from the listener to the backends
+GRPCRoute     l7              Anything in the     Terminated only   grpc routing over http/2 and
+                              gRPC protocol                         http/2 cleartext
+
+Example 1
+Ingress-cors.yaml ----------------------
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: secure-app
+  annotations:
+    nginx.ingress.kubernetes.io/ssl-redirect: "true"
+    nginx.ingress.kubernetes.io/force-ssl-redirect: "true"
+spec:
+  tls:
+  - hosts:
+    - secure.example.com
+    secretName: tls-secret
+
+
+gateway.yaml ----------------------
+apiVersion: gateway.networking.k8s.io/v1
+kind: Gateway
+metadata:
+  name: secure-gateway
+spec:
+  gatewayClassName: example-gateway-class
+  listeners:
+  - name: https
+    protocol: HTTPS
+    port: 443
+    tls:
+      mode: Terminate
+      certificateRefs:
+      - kind: Secret
+        name: tls-secret
+    allowedRoutes:
+      kinds:
+      - kind: HTTPRoute
+
+Example 2
+canary-ingress.yaml ----------------------
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: canary-ingress
+  annotations:
+    nginx.ingress.kubernetes.io/canary: "true"
+    nginx.ingress.kubernetes.io/canary-weight: "20"
+spec:
+  rules:
+  - http:
+      paths:
+      - path: /
+        pathType: Prefix
+        backend:
+          service:
+            name: app-v2
+            port:
+              number: 80
+
+app-gateway.yaml ----------------------
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: split-traffic
+spec:
+  parentRefs:
+  - name: app-gateway
+  rules:
+  - backendRefs:
+    - name: app-v1
+      port: 80
+      weight: 80
+    - name: app-v2
+      port: 80
+      weight: 20
+
+Example 3
+Ingress-cors.yaml ----------------------
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: cors-ingress
+  annotations:
+    nginx.ingress.kubernetes.io/enable-cors: "true"
+    nginx.ingress.kubernetes.io/cors-allow-method: "GET, PUT, POST"
+    nginx.ingress.kubernetes.io/cors-allow-origin: "https://allowed-origin.com"
+    nginx.ingress.kubernetes.io/cors-allow-credentials: "true"
+
+Ingress.yaml ----------------------
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: traefik-ingress
+  annotations:
+    traefik.ingress.kubernetes.io/headers.customresponseheaders: |
+    Allow-Control-Allow-Origin: '*'
+    Allow-Control-Allow-Methods: GET,POST,PUT,DELETE,OPTIONS
+    Allow-Control-Allow-Headers: Content-Type, Authorization
+    Allow-Control-Allow-Credentials: true
+    Allow-Control-Max-Age: 3600
+
+
+http-route.yaml ----------------------
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: cors-route
+spec:
+  parentRefs:
+  - name: my-gateway
+  rules:
+  - matches:
+    - path:
+        type: PathPrefix
+        value: /api
+    filters:
+    - type: ResponseHeaderModifier
+      responseHeaderModifier:
+        add:
+        - name: Allow-Control-Allow-Origin
+          value: "*"
+        - name: Allow-Control-Allow-Methods
+          value: "GET,POST,PUT,DELETE,OPTIONS"
+        - name: Allow-Control-Allow-Headers
+          value: "true"
+        - name: Allow-Control-Max-Age
+          value: "3600"
+    backendRefs:
+    - name: api-service
