@@ -216,17 +216,86 @@ ArtifactHub.io
 3. bitnami
 4. Community Operators
 
+Helm3 ----
+apiVersion: v2
+appVersion: 5.8.1
+version: 12.1.27
+name: wordpress
+description: web publishing platform for building blogs and websites
+type: application
+dependencies:
+    - condition: mariadb.enabled
+      name: mariadb
+      repository: https://charts.bitnami.com/bitnami
+      version: 9.x.x
+
+keywords:
+    - application
+    - blog
+    - wordpress
+maintianers:
+    - email: containers@bitname.com
+      name: Bitnami
+home: https://link
+icon: https://link.png
+
+
+appVersion -- version of the application, information purpose only
+version -- version of the chart itself, every chart must have its own version and this is independent of the version of the app
+type -- there are 2 types of chats, application and library
+application is the default type what we create for deploying applications
+library -- type of chart that provide utilities that help in building charts
+A wordpress application is a 2 tier app which has WordPress server and a database server, db  
+
+# structure of helm charts
+hello-world-chart/
+  templates/
+  values.yaml
+  Chart.yaml
+  LICENSE
+  README.md
+  charts/
+
+#Helm -CLI
+
+helm --help
+helm repo --help
+helm repo update --help
+helm search wordpress
+helm search hub wordpress
+helm list
+helm uninstall my-release
+helm repo list
+helm repo update -- update local copy of repo
+helm install --set wordpressBlogName="test" my-release bitnami/wordpress
+helm install --values custom-values.yaml bitnami/wordpress
+helm pull bitnami/wordpress
+helm pull --untar bitnami/wordpress
+helm install my-release ./wordpress
+helm search repo wordpress
+helm upgrade dazzling-web bitnami/nginx --version 18.3.6
 
 
 
+controlplane ~ ➜  helm repo list
+NAME            URL                                                 
+bitnami         https://charts.bitnami.com/bitnami                  
+puppet          https://puppetlabs.github.io/puppetserver-helm-chart
+hashicorp       https://helm.releases.hashicorp.com 
 
+controlplane ~ ➜  helm repo remove hashicorp
 
+UPGRADE CHARTS IN HELM
+helm install nginx-release bitname/nginx --version 7.1.0
+HELM CAN upgrade all objects by itself and we do not require  to update the objects one by one
+first find out the pod details of nginx
+k describe pod nginx-release-9828913-8687
 
-
-
-
-
-
+helm upgrade nginx-release bitnami/nginx
+helm history nginx-release
+helm rollback nginx-release 1
+helm upgrade dazzling-web bitnami/nginx --version 18.3.6
+helm rollback dazzling-web 3
 
 
 ------------------------------------
