@@ -1,0 +1,77 @@
+----- 
+K8s 1.32 updates
+
+stable 13
+beta
+alpha
+
+#4680
+Add Resource Health Status to the Pod Status for Device Plugin and DRA
+
+#4828
+Flagz for Kubernetes Components
+
+#4827
+Statusz for Kubernetes Components -- Monitor health and performance
+   1. See runtime details instantly
+   2. Check version, uptime & compatibility
+   3. No need to dig through logs
+
+   1. Devs: Check versions & compatibility
+   2. Operators: Quick uptime & component insights
+   3. Support: Spot outdated/problematic versions
+   
+   Is available for users in system:monitoring
+   To enable this feature opt-in via ComponentStatusz feature gate
+
+#4802
+Windows node gracefully shutdown
+   1. Kubelet detects shutdown & handles termination
+   2. Respects lifecylce events(Pre-stop, SIGTERM)
+   3. Cloud-agnostic & consistent across envs
+      1. kubelet on windows nodes are registered as windows service which helps detect shutdown events thru the service control pre-shutdown signal(PRESHUTDOWN)
+      windows service interprets PRESHUTDOWN signal
+      2.  so when node shuts down, kubelet uses the same mechanism as on linux to terminate pods
+      Pre-stop hooks & SIGTERM executed
+      3.  Applies grace periods
+      ShutdownGracePeriod & ShutdownGracePeriodCriticalPods
+      4.  Ensures smooth & consistent shutdown
+      Works like Linux, cloud-agnostic
+      
+      - Only works for service-based Kubelet(no nssm.exe support) -- KUBELET has to be REGISTERED AS WINDOWS SERVICE
+      - No graceful shutdown for power loss or forced terminations
+      - to ENABLE THIS FEATURE 
+      Opt-in via WindowsGracefulNodeShutdown feature gate
+
+#4420 
+Retry Generate Name
+   1. Automatic retry for generateName conflicts is now stable
+   2. 
+   apiversion: v1
+   kind: Pod
+   metadata:
+            generateName: my-app
+K8s might create resources like my-app-r9201
+    this is useful when you need multiple similar resources with unique names
+   3. generateName allows 14M+ unique names pre prefix but there could be name conflicts
+      1. earlier API server returned HTTP 409 Conflict
+   4.  API server auto-retries name conflicts
+       1.  Automatically retries upto 7 times -- no manual fix needed
+       2.  If all retries fail, a transparent error is returned
+  
+  - Feature is controlled by RetryGenerateName feature gate
+
+#1860
+Make K8s aware of the LoadBalancer behavior
+   1. ipMode gives better ExternalIP control
+   2. Bypassing LoadBalancer -- Breaks TLS & PROXY protocol
+   3. Fixed IP on a node -- blocks health check
+   eg: scaleway, tencent cloud
+   cons:
+   - ipMode:Proxy may add slight latency
+
+ipMode Option       Behaviour                                 Use Case
+VIP             Blinds External IP directly to node        Faster traffic routing
+Proxy         Ensure traffic goes thru LB                   TLS termination, PROXY protocol, health checks
+
+   - Controlled by LoadBalancerIPMode feature gate
