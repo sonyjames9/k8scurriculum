@@ -224,17 +224,198 @@ in the deployment yaml, the image name would change from nginx to haproxy:2.4
 
 Kustomize patches -------------
 
+1. Kustomize patches provide another method to modifying k8s configs
+2. Unlike common transformers, patches provide a more "sirgical" approach to targeting one or more specific sections in a k8s resource
+3. To create a patch 3 parameters must be provided:
+    1. Operation: add/remove/replace
+    2. Target: What resource should this patch be applied on
+      - Kind
+      - Version/Group
+      - Name 
+      - Namespace 
+      - labelSelector 
+      - AnnotationSelector
+    3. Value: What is the value that will either be replaced or added with(only needed for add/replace operations)
+
+api-depl.yaml -----
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: api-deployment
+  labels: 
+    app: api-app
+    type: api  
+spec:
+  replicas: 2    
+
+
+kustomization.yaml --------
+patches:
+    - target:
+        kind: Deployment
+        name: api-deployment
+      patch: | -
+          - op:   replace
+            path: /metadata/name
+            value: web-deployment
+      
+|-   Inline patch, op is operation to replace, define the path and finally you can change the value
+
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: api-deployment
+  labels: 
+    app: api-app
+    type: api  
+spec:
+  replicas: 2    
+
+
+kustomization.yaml --------
+patches:
+    - target:
+        kind: Deployment
+        name: api-deployment
+      patch: | -
+          - op:   replace
+            path: /spec/replicas
+            value: 5
+
+patches: 
+    - path: replica-patch.yaml
+      target:
+          kind: Deployment
+          name: nginx-deployment
+
+replica-patch.yaml -----
+- op: replace
+  path: /spec/replicas
+  value: 5
+
+- op: add
+  path: /spec/template/metadata/labels/org
+  value: KodeKloud
+
+- op: remove
+  path: /spec/template/metadata/labels/org
+  value: KodeKloud
+
+Patches list -------------------------
+Add to a list 
+
+- op: replace
+  path: /spec/template/spec/labels/containers/0
+  value: 
+      name: haproxy
+      image: haproxy
+
+  Add another container to the pod, append to end of the list
+- op: add
+  path: /spec/template/spec/labels/containers/ -
+  value: 
+      name: haproxy
+      image: haproxy
+
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: api-deployment
+spec:
+  template:
+    spec:
+      containers:
+        - $patch: delete
+          name: memcached
+
+kubectl apply -k /root/code/k8s/
+
+
+resources:
+  - mongo-depl.yaml
+  - api-depl.yaml
+  - mongo-service.yaml
+
+patches:
+  - target:
+      kind: Deployment
+      name: mongo-deployment
+    patch: |-
+      - op: remove
+        path: /spec/template/metadata/labels/org
+
+kubectl apply -k /root/code/k8s/
 
 
 
+OVERLAYS -----------------
+Update the api image in the api-deployment to use caddy docker image in the QA environment.
+
+Perform this using an inline JSON6902 patch.
+
+n the kustomization.yaml file which is located at the /root/code/k8s/overlays/QA directory, add a json6902 patch to update the image as shown below:
+
+overlays/QA/kustomization.yaml
+patches:
+  - target:
+      kind: Deployment
+      name: api-deployment
+    patch: |-
+      - op: replace
+        path: /spec/template/spec/containers/0/image
+        value: caddy
+
+After modifications, apply the changes to create updated deployments in QA environment:
+kubectl apply -k /root/code/k8s/overlays/QA
+
+A mysql database needs to be added only in the staging environment.
+Create a mysql deployment in a file called mysql-depl.yaml and define the deployment name as mysql-deployment.
+Deploy 1 replica of the mysql container using mysql image and set the following env variables:
+- name: MYSQL_ROOT_PASSWORD
+  value: mypassword
+
+NOTE: Please ensure to deploy the changes committed in the staging environment before validation.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: mysql-deployment
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      component: mysql
+  template:
+    metadata:
+      labels:
+        component: mysql
+    spec:
+      containers:
+        - name: mysql
+          image: mysql
+          env:
+            - name: MYSQL_ROOT_PASSWORD
+              value: mypassword
 
 
+COMPONENTS -----------------
+1. Component provide the ability to define reusable pieces of configuration logic(resources + patches) that can be included in multiple overlays
+2. Components are useful in situations where applications support multiple optional features that need to be enabled only in a subset of overlays
 
 
+apiVersion: kustomize.config.k8s.io/v1alpha1
+kind: Component
 
+resources:
+  - redis-depl.yaml
+  - redis-service.yaml
 
+bases:
+  - ../../base
 
-
+components:
+  - ../../components/auth
+  - ../../components/db
+  - ../../components/caching
 
 
 

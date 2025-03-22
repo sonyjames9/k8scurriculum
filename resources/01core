@@ -162,6 +162,28 @@ kubectl replace -f pod-def.yml
 kubectl get pods
 kubectl describe pod pod-name
 
+-------------------------------
+kubectl get pods --all-namespaces | awk '{print $1}' | sort | uniq -c | sort -k1 -n -r
+Which will yield:
+
+136 some-ns
+133 kube-system
+119 other-ns
+Explaining a bit:
+
+kubectl get pods --all-namespaces will list all pods with namespace in the first column.
+awk { print $1 } will "filter out" the first column which is the namespace
+sort will sort the name of namespaces alphabetically
+uniq -c will count how many times each namespace appeared and aggregate with a count as the first column (e.g. 136 some-ns means that some-ns appeared 136 times).
+sort -k1 -n -r this one will sort from the namespace which appeared the most (i.e. had most pods) to the one that appeared the least. -k1 means that I am using the first column to sort, -n I am using numeric comparison and -r and I am doing a reverse ordering.
+
+kubectl get replicaset --all-namespaces -o custom-columns=NAMESPACE:.metadata.namespace,NAME:.metadata.name,PODS:.status.replicas 
+
+kubectl get pods -o json --all-namespaces | jq --argjson ns "$(kubectl get namespaces -o json)" '.items | group_by(.metadata.namespace) | map({namespace: .[].metadata.namespace, count: . | length}) | . += ($ns.items | map({namespace: .metadata.name, count: 0})) | unique_by(.namespace) | sort_by(.count)'
+
+
+-------------------------------
+
 kubernetes labs
 https://labs.play-with-k8s.com
 
