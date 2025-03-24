@@ -999,3 +999,54 @@ the apply command stores last applied changes in an annotation
 annotations:
   kubectl.kubernetes.io/last-applied-configuration:
    {"json format of last applied configuration"}
+
+
+
+Admission Controllers -------
+
+Securing Kubernetes ---
+
+Kubectl ---> Kube APiServer(Authentication) ---> Create Pod 
+Kubectl ---> Kube APiServer(Authentication) ---> Authorization ---> Create Pod
+
+Authorization - RBAC 
+  1. Can list PODs/Deployments/Services
+  2. Can create PODs/Deployments/Services
+  3. Can delete PODs/Deployments/Services
+  4. Can create pods named blue or orange
+  5. Can create pods within a namespace
+
+Cant be achieved with existing RBAC
+- Only permit images from internal/certain registry
+- Do not permit runAs root user
+- Only permit certain capabilities
+- Pod always has labels
+
+Kubectl ---> Kube APiServer(Authentication) ---> Authorization ---> Admisstion Controllers ---> Create Pod
+Admission controllers helps implement better security measures to enforce how a cluster is used. Apart from simply validating configuration, AC can do a lot more change the request itself or perform additional operations before the pod gets created.
+
+AdmissionControllers
+1. AlwaysPullImages
+2. DefaultStorageClass
+3. EventRateLimit
+4. NamespaceExists                deprecated and replaced with        NamespaceLifecycle
+5. NameSpaceAutoProivsion   deprecated and replaced with        NamespaceLifecycle
+5. etc
+
+
+kube-apiserver -h | grep enable-admission-plugins
+
+kubeadm setup
+kubectl exec kube-apiserver-controlplane -n kube-system -- kube-apiserver -h | grep enable-admission-plugins
+
+To add an admission controller, update the enable-admission-plugins flagon the kube apiserver
+
+kube-apiserver
+- --authorization-mode=Node,RBAC
+- --advertise-address=172.17.0.18
+- --allow-privileged=true
+- --client-ca-file=/etc/kubernetes/pki/ca.crt
+- --enable-admission-plugins=NodeRestriction, NamespaceAutoProvision
+- --disable-admission-plugins=DefaultStorageClass
+
+AdmissionControllers can perform actions in the backed 
