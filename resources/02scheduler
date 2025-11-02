@@ -304,7 +304,7 @@ spec:
       memory: 500Mi
     type: Container
 
-RESORCE QUOTA ---
+RESOURCE QUOTA ---
 created at namespace level
 
 apiVersion: v1
@@ -410,6 +410,7 @@ spec:
     - --address=127.0.0.1
     - --kubeconfig=/etc/kubernetes/scheduler.conf
     - --config=/etc/kubernetes/my-scheduler-config.yaml
+
 k get events -owide
 k logs custom-scheduler -n=kube-system
 
@@ -1074,3 +1075,201 @@ Note: Once you update kube-apiserver yaml file then please wait few mins for the
 Add DefaultStorageClass to disable-admission-plugins in /etc/kubernetes/manifests/kube-apiserver.yaml
 Update /etc/kubernetes/manifests/kube-apiserver.yaml as below
    - --disable-admission-plugins=DefaultStorageClass
+
+
+Validating & Mutating Admission Controllers ---------
+Which of the below combination is correct for Mutating and validating admission controllers ?
+
+
+flow 
+First Mutating and later validating
+
+>>>>>>>>
+Create TLS secret webhook-server-tls for secure webhook communication in webhook-demo namespace.
+We have already created below cert and key for webhook server which should be used to create secret.
+Certificate : /root/keys/webhook-server-tls.crt
+Key : /root/keys/webhook-server-tls.key
+Ans  
+kubectl -n webhook-demo create secret tls webhook-server-tls \
+    --cert "/root/keys/webhook-server-tls.crt" \
+    --key "/root/keys/webhook-server-tls.key"
+
+kubectl -n webhook-demo create secret tls webhook-server-tls --cert "/root/keys/webhook-server-tls.crt" --key "/root/keys/webhook-server-tls.key"
+
+
+Create webhook service now so that admission controller can communicate with webhook.
+We have already added sample service definition under /root/webhook-service.yaml so just create service with that definition.
+deployment -----
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: webhook-server
+  namespace: webhook-demo
+  labels:
+    app: webhook-server
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: webhook-server
+  template:
+    metadata:
+      labels:
+        app: webhook-server
+    spec:
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1234
+      containers:
+      - name: server
+        image: stackrox/admission-controller-webhook-demo:latest
+        imagePullPolicy: Always
+        ports:
+        - containerPort: 8443
+          name: webhook-api
+        volumeMounts:
+        - name: webhook-tls-certs
+          mountPath: /run/secrets/tls
+          readOnly: true
+      volumes:
+      - name: webhook-tls-certs
+        secret:
+          secretName: webhook-server-tls
+
+service -------
+apiVersion: v1
+kind: Service
+metadata:
+  name: webhook-server
+  namespace: webhook-demo
+spec:
+  selector:
+    app: webhook-server
+  ports:
+    - port: 443
+      targetPort: webhook-api
+
+
+Webhook config ---------
+apiVersion: admissionregistration.k8s.io/v1
+kind: MutatingWebhookConfiguration
+metadata:
+  name: demo-webhook
+webhooks:
+  - name: webhook-server.webhook-demo.svc
+    clientConfig:
+      service:
+        name: webhook-server
+        namespace: webhook-demo
+        path: "/mutate"
+      caBundle: LS0tLS1CRUdJTiBDRVJUSUZJQ0FURS0tLS0tCk1JSURQekNDQWllZ0F3SUJBZ0lVUlc3Ykw3Y2dGTENQSy9pUlY3cENyaHNYeDAwd0RRWUpLb1pJaHZjTkFRRUwKQlFBd0x6RXRNQ3NHQTFVRUF3d2tRV1J0YVhOemFXOXVJRU52Ym5SeWIyeHNaWElnVjJWaWFHOXZheUJFWlcxdgpJRU5CTUI0WERUSTFNRE15TnpFek1EWTBObG9YRFRJMU1EUXlOakV6TURZME5sb3dMekV0TUNzR0ExVUVBd3drClFXUnRhWE56YVc5dUlFTnZiblJ5YjJ4c1pYSWdWMlZpYUc5dmF5QkVaVzF2SUVOQk1JSUJJakFOQmdrcWhraUcKOXcwQkFRRUZBQU9DQVE4QU1JSUJDZ0tDQVFFQWxobGdoaTNKOWlzaHpITkdIenRaL1VBZzQ1b2lHWFd4bjErTgpEUHlSZURSbFYwOGpTOU5KSDdrb1EzOEFjSUx5R3gvNTZKcVliMWNWV0lyY0IzSDEranhIZzV0cmhGSzBzTFVQCnRyWFdybzhRSjNYZTRLT1hsem9XQkdSc2daUDhvZFErVTRRNXd3M2dxM3ZXOUx6K3NoUkFjaERDNFV4aXdxQ2cKdmkvOFZiQUlBSGhmamNSN3hTWFZVcllIclV5eVJDRW1ZamsxWnBQdTBSSGdha1NCQ0VDUFBWc0hDV1J3NldXNworTEhCcnI2NFlCd0JRV2U5cHhaRU5kWWtDd251U0RrSlRrbmVZTFB4aGVBRHVES3RIMTQyTTU5S3lPZ0RJZUgrCnR1bFJSTjJleC9FZDlZL3haYmpNUFg1a1lCN1dzM2tkSzM5UXdZd3ZPZTNnWWd5UDd3SURBUUFCbzFNd1VUQWQKQmdOVkhRNEVGZ1FVbjFielJoeGF5ckpLait4aXBMdGZXOTdteDVRd0h3WURWUjBqQkJnd0ZvQVVuMWJ6Umh4YQp5ckpLait4aXBMdGZXOTdteDVRd0R3WURWUjBUQVFIL0JBVXdBd0VCL3pBTkJna3Foa2lHOXcwQkFRc0ZBQU9DCkFRRUFQenlWL3RXYnhyTzBJazB1Q05ONEkyZU1Bc0tPYnEvNGYya2tvUElFeXhOSlFXOXRCY2ZTZTVmU01scVkKQkx3QmNVRmNnUVY3a0VqQ0FEZ0VkLzYxUHYydjN0QzB0VERpSks0MkpjU3dXRDFFSnViVlo2d013Mkpnb2VXMQpTM1VkNm4vMmhPd2o1R1hvYjgxV3R4R0dBNzlqU1FjaUxrMlcxWmdKL1VaOWE2dzhIT0JOUllwZGMzR3IvamVmCnFYeHdRTU5LTSs5SzQxc0l0Yy9ubHJmc3hWSHVMMW8yWEdiekdpZTZTcStBQVcyaDFTV1NpdG5MdDZVcVVPM0QKeXdrdWJUSUNHdTQ0QkdweGxCd3VJZmZFMzZlUjdMcHRpUXpQL3BsNGpuVEJ3cVkxbVp6UGxuUWxaSDY5dTdQQQpwVWFWb2hvWkpYaS9hZ2dQYWVNTTZhbmhYUT09Ci0tLS0tRU5EIENFUlRJRklDQVRFLS0tLS0K
+    rules:
+      - operations: [ "CREATE" ]
+        apiGroups: [""]
+        apiVersions: ["v1"]
+        resources: ["pods"]
+    admissionReviewVersions: ["v1beta1"]
+    sideEffects: None
+
+
+controlplane ~ ➜  k get all -n webhook-demo
+NAME                                 READY   STATUS    RESTARTS   AGE
+pod/webhook-server-8b577957b-d4gdm   1/1     Running   0          4m8s
+
+NAME                     TYPE        CLUSTER-IP       EXTERNAL-IP   PORT(S)   AGE
+service/webhook-server   ClusterIP   172.20.102.247   <none>        443/TCP   119s
+
+NAME                             READY   UP-TO-DATE   AVAILABLE   AGE
+deployment.apps/webhook-server   1/1     1            1           4m8s
+
+NAME                                       DESIRED   CURRENT   READY   AGE
+replicaset.apps/webhook-server-8b577957b   1         1         1       4m8s
+
+
+pod-with-default
+# A pod with no securityContext specified.
+# Without the webhook, it would run as user root (0). The webhook mutates it
+# to run as the non-root user with uid 1234.
+apiVersion: v1
+kind: Pod
+metadata:
+  name: pod-with-defaults
+  labels:
+    app: pod-with-defaults
+spec:
+  restartPolicy: OnFailure
+  containers:
+    - name: busybox
+      image: busybox
+      command: ["sh", "-c", "echo I am running as user $(id -u)"]
+
+
+pod-with-conflict
+# A pod with a conflicting securityContext setting: it has to run as a non-root
+# user, but we explicitly request a user id of 0 (root).
+# Without the webhook, the pod could be created, but would be unable to launch
+# due to an unenforceable security context leading to it being stuck in a
+# 'CreateContainerConfigError' status. With the webhook, the creation of
+# the pod is outright rejected.
+apiVersion: v1
+kind: Pod
+metadata:
+  name: pod-with-conflict
+  labels:
+    app: pod-with-conflict
+spec:
+  restartPolicy: OnFailure
+  securityContext:
+    runAsNonRoot: true
+    runAsUser: 0
+  containers:
+    - name: busybox
+      image: busybox
+      command: ["sh", "-c", "echo I am running as user $(id -u)"]
+
+
+pod-with-override
+# A pod with a securityContext explicitly allowing it to run as root.
+# The effect of deploying this with and without the webhook is the same. The
+# explicit setting however prevents the webhook from applying more secure
+# defaults.
+apiVersion: v1
+kind: Pod
+metadata:
+  name: pod-with-override
+  labels:
+    app: pod-with-override
+spec:
+  restartPolicy: OnFailure
+  securityContext:
+    runAsNonRoot: false
+  containers:
+    - name: busybox
+      image: busybox
+      command: ["sh", "-c", "echo I am running as user $(id -u)"]
+
+What are runAsNonRoot and runAsUser values for previously created pods securityContext?
+We did not specify any securityContext values in pod definition so check out the changes done by mutation webhook in pod
+
+controlplane ~ ➜  k get po pod-with-defaults -oyaml | grep -A2 " securityContex
+t"
+  securityContext:
+    runAsNonRoot: true
+    runAsUser: 1234
+
+Deploy pod with a securityContext explicitly allowing it to run as root
+We have added pod definition file under /root/pod-with-override.yaml
+Validate securityContext after you deploy this pod
+
+controlplane ~ ➜  k get po pod-with-override -oyaml | grep -A2 " securityContex
+t"
+  securityContext:
+    runAsNonRoot: false
+  serviceAccount: default
+
+
+Deploy a pod with a conflicting securityContext i.e. pod running with a user id of 0 (root)
+We have added pod definition file under /root/pod-with-conflict.yaml
+Mutating webhook should reject the request as its asking to run as root user without setting runAsNonRoot: false
+controlplane ~ ➜  k create -f pod-with-conflict.yaml 
+Error from server: error when creating "pod-with-conflict.yaml": admission webhook "webhook-server.webhook-demo.svc" denied the request: runAsNonRoot specified, but runAsUser set to 0 (the root user)

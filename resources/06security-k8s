@@ -683,7 +683,7 @@ rules:
   - create
  
 k --as dev-user create deployment nginx --image=nginx -n blue
-> deployment.apps/ngonx created
+> deployment.apps/nginx created
 
 Cluster roles --------
 Roles/Rolebindings are namespaces, if namespace is not mentioned in yaml then the resource is created in default ns.
